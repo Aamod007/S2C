@@ -5,6 +5,7 @@ import { ConvexClientProvider } from "@/components/convex-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { StoreProvider } from "@/redux/provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,9 +40,11 @@ export default function RootLayout({
             forcedTheme="dark"
             disableTransitionOnChange
           >
-            <TooltipProvider>
-              {children}
-            </TooltipProvider>
+            <StoreProvider>
+              <TooltipProvider>
+                {children}
+              </TooltipProvider>
+            </StoreProvider>
             <Toaster richColors position="bottom-right" />
           </ThemeProvider>
         </ConvexClientProvider>
