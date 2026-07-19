@@ -1,128 +1,84 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
-interface ViewportState {
+export interface ViewportState {
   scale: number;
-  translateX: number;
-  translateY: number;
+  translate: { x: number; y: number };
 }
 
 const initialState: ViewportState = {
   scale: 1,
-  translateX: 0,
-  translateY: 0,
+  translate: { x: 0, y: 0 },
 };
 
 const MIN_SCALE = 0.1;
 const MAX_SCALE = 5;
 
-const viewportSlice = createSlice({
+export const viewportSlice = createSlice({
   name: "viewport",
   initialState,
   reducers: {
-    wheelZoom: (
-      state,
-      action: PayloadAction<{
-        deltaY: number;
-        clientX: number;
-        clientY: number;
-        canvasLeft: number;
-        canvasTop: number;
-      }>
-    ) => {
-      const { deltaY, clientX, clientY, canvasLeft, canvasTop } =
-        action.payload;
-
-      const zoomFactor = deltaY > 0 ? 0.9 : 1.1;
-      const newScale = Math.min(
-        MAX_SCALE,
-        Math.max(MIN_SCALE, state.scale * zoomFactor)
-      );
-
-      // Zoom towards cursor position
-      const mouseX = clientX - canvasLeft;
-      const mouseY = clientY - canvasTop;
-
-      state.translateX =
-        mouseX - (mouseX - state.translateX) * (newScale / state.scale);
-      state.translateY =
-        mouseY - (mouseY - state.translateY) * (newScale / state.scale);
-      state.scale = newScale;
-    },
-
     wheelPan: (
       state,
-      action: PayloadAction<{ deltaX: number; deltaY: number }>
+      action: PayloadAction<{ dx: number; dy: number }>
     ) => {
-      state.translateX -= action.payload.deltaX;
-      state.translateY -= action.payload.deltaY;
+      state.translate.x -= action.payload.dx;
+      state.translate.y -= action.payload.dy;
     },
-
-    panStart: () => {
-      // Pan start is tracked via refs, not state
-    },
-    panMove: (
+    wheelZoom: (
       state,
-      action: PayloadAction<{ deltaX: number; deltaY: number }>
+      action: PayloadAction<{ deltaY: number; clientX: number; clientY: number }>
     ) => {
-      state.translateX += action.payload.deltaX;
-      state.translateY += action.payload.deltaY;
+      const { deltaY, clientX, clientY } = action.payload;
+      const zoomFactor = 0.999 ** deltaY;
+      
+      const newScale = Math.min(Math.max(state.scale * zoomFactor, MIN_SCALE), MAX_SCALE);
+      
+      // Calculate how much the scale changed to adjust translation
+      // so we zoom in/out relative to the mouse cursor
+      const scaleRatio = newScale / state.scale;
+      
+      state.translate = {
+        x: clientX - (clientX - state.translate.x) * scaleRatio,
+        y: clientY - (clientY - state.translate.y) * scaleRatio,
+      };
+      
+      state.scale = newScale;
     },
-    panEnd: () => {
-      // No-op, cleanup handled in refs
-    },
-
     setViewport: (
       state,
-      action: PayloadAction<{
-        scale: number;
-        translateX: number;
-        translateY: number;
-      }>
+      action: PayloadAction<ViewportState>
     ) => {
       state.scale = action.payload.scale;
-      state.translateX = action.payload.translateX;
-      state.translateY = action.payload.translateY;
+      state.translate = action.payload.translate;
     },
-
     resetViewport: () => initialState,
   },
 });
 
-// ── Selectors (pure functions) ───────────────────────────────
+export const { wheelPan, wheelZoom, setViewport, resetViewport } = viewportSlice.actions;
+export default viewportSlice.reducer;
 
-export function screenToWorld(
-  screenX: number,
-  screenY: number,
+// Pure utility functions for coordinate conversions
+export const screenToWorld = (
+  clientX: number,
+  clientY: number,
   scale: number,
-  translateX: number,
-  translateY: number
-) {
+  translate: { x: number; y: number }
+) => {
   return {
-    x: (screenX - translateX) / scale,
-    y: (screenY - translateY) / scale,
+    x: (clientX - translate.x) / scale,
+    y: (clientY - translate.y) / scale,
   };
-}
+};
 
-export function worldToScreen(
+export const worldToScreen = (
   worldX: number,
   worldY: number,
   scale: number,
-  translateX: number,
-  translateY: number
-) {
+  translate: { x: number; y: number }
+) => {
   return {
-    x: worldX * scale + translateX,
-    y: worldY * scale + translateY,
+    x: worldX * scale + translate.x,
+    y: worldY * scale + translate.y,
   };
-}
-
-export const {
-  wheelZoom,
-  wheelPan,
-  panStart,
-  panMove,
-  panEnd,
-  setViewport,
-  resetViewport,
-} = viewportSlice.actions;
-export default viewportSlice.reducer;
+};

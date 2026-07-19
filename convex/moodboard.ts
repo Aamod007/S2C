@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { getAuthUserId } from "./auth";
 import { v } from "convex/values";
 
 const MAX_MOODBOARD_IMAGES = 6;

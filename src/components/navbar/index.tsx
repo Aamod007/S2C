@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
+import { api } from "../../../convex/_generated/api";
 import { generateUserSlug } from "@/lib/slugify";
 import { Button } from "@/components/ui/button";
 import { Plus, CreditCard } from "lucide-react";
