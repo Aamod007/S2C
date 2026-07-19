@@ -85,6 +85,7 @@ export const update = mutation({
     description: v.optional(v.string()),
     is_public: v.optional(v.boolean()),
     tags: v.optional(v.array(v.string())),
+    style_guide: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -130,6 +131,40 @@ export const updateSketches = mutation({
 
     const project = await ctx.db.get(args.projectId);
     if (!project || project.user_id !== userId) {
+      throw new Error("Project not found or unauthorized");
+    }
+
+    await ctx.db.patch(args.projectId, {
+      sketches_data: args.sketches_data,
+      viewport_data: args.viewport_data,
+      last_modified: Date.now(),
+    });
+  },
+});
+
+/**
+ * Webhook-safe variant of `updateSketches` for the Inngest autosave workflow,
+ * which runs with NO user identity (ctx.auth is empty). Takes the userId
+ * explicitly — the caller (our autosave API route) has already authenticated
+ * the user via Clerk and verified ownership before enqueueing the job; this
+ * mutation re-verifies `project.user_id === userId` as defense in depth.
+ *
+ * ⚠️ SECURITY NOTE: as a public mutation this is callable by anyone with the
+ * deployment URL who can guess a (userId, projectId) pair. Should become an
+ * `internalMutation` invoked via an action/HTTP action with a shared secret
+ * before production (same caveat as the webhook functions in
+ * convex/subscriptions.ts).
+ */
+export const updateSketchesFromWorkflow = mutation({
+  args: {
+    userId: v.id("users"),
+    projectId: v.id("projects"),
+    sketches_data: v.any(),
+    viewport_data: v.optional(v.any()),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (!project || project.user_id !== args.userId) {
       throw new Error("Project not found or unauthorized");
     }
 

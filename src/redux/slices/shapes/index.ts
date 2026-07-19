@@ -27,6 +27,7 @@ const shapesSlice = createSlice({
     addShape: shapesAdapter.addOne,
     addShapes: shapesAdapter.addMany,
     updateShape: shapesAdapter.updateOne,
+    updateShapes: shapesAdapter.updateMany,
     removeShape: shapesAdapter.removeOne,
     removeShapes: shapesAdapter.removeMany,
     clearShapes: shapesAdapter.removeAll,
@@ -73,12 +74,17 @@ const shapesSlice = createSlice({
   },
 });
 
-export const shapesSelectors = shapesAdapter.getSelectors();
+// Scoped to any state that contains this slice under `shapes` (structurally
+// matches RootState without importing it — store.ts is owned elsewhere).
+export const shapesSelectors = shapesAdapter.getSelectors(
+  (state: { shapes: ReturnType<typeof shapesSlice.getInitialState> }) => state.shapes
+);
 
 export const {
   addShape,
   addShapes,
   updateShape,
+  updateShapes,
   removeShape,
   removeShapes,
   clearShapes,

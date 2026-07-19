@@ -82,7 +82,7 @@ export interface TextShape extends BaseShape {
 export interface GeneratedUIShape extends BaseShape {
   type: "generated-ui";
   htmlContent?: string;
-  uiSpecData?: any;
+  uiSpecData?: unknown;
   sourceFrameId?: string;
 }
 

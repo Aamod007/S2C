@@ -31,6 +31,16 @@ export const generationApi = createApi({
         body,
       }),
     }),
+    redesignWorkflow: builder.mutation<
+      any,
+      { shapeId: string; message: string; html: string; projectId: string }
+    >({
+      query: (body) => ({
+        url: "/generate/workflow-redesign",
+        method: "POST",
+        body,
+      }),
+    }),
   }),
 });
 
@@ -38,4 +48,5 @@ export const {
   useGenerateMutation,
   useRedesignMutation,
   useGenerateWorkflowMutation,
+  useRedesignWorkflowMutation,
 } = generationApi;

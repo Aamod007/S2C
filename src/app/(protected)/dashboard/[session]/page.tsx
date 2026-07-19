@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import { useProject } from "@/hooks/use-project";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";

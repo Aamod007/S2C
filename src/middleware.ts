@@ -1,9 +1,19 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
-const isPublicRoute = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)', '/'])
+// Public routes: auth pages, landing page, and webhook endpoints
+// (webhooks are signed by their providers and can't authenticate via Clerk).
+const isPublicRoute = createRouteMatcher([
+  '/',
+  '/sign-in(.*)',
+  '/sign-up(.*)',
+  '/api/billing/webhook(.*)',
+  '/api/inngest(.*)',
+])
 
 export default clerkMiddleware(async (auth, request) => {
-  // BYPASS LOGIN: Everything is public for now
+  if (!isPublicRoute(request)) {
+    await auth.protect()
+  }
 })
 
 export const config = {

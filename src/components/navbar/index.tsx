@@ -61,7 +61,7 @@ export function Navbar() {
             </Button>
           </div>
 
-          <UserButton afterSignOutUrl="/" />
+          <UserButton />
         </div>
       </div>
     </header>

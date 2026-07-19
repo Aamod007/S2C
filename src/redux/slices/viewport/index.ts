@@ -24,6 +24,15 @@ export const viewportSlice = createSlice({
       state.translate.x -= action.payload.dx;
       state.translate.y -= action.payload.dy;
     },
+    // Drag panning (space-held, middle-mouse, or select-tool on empty space):
+    // dx/dy are screen-space pointer deltas applied directly to the translate.
+    panBy: (
+      state,
+      action: PayloadAction<{ dx: number; dy: number }>
+    ) => {
+      state.translate.x += action.payload.dx;
+      state.translate.y += action.payload.dy;
+    },
     wheelZoom: (
       state,
       action: PayloadAction<{ deltaY: number; clientX: number; clientY: number }>
@@ -55,7 +64,7 @@ export const viewportSlice = createSlice({
   },
 });
 
-export const { wheelPan, wheelZoom, setViewport, resetViewport } = viewportSlice.actions;
+export const { wheelPan, wheelZoom, panBy, setViewport, resetViewport } = viewportSlice.actions;
 export default viewportSlice.reducer;
 
 // Pure utility functions for coordinate conversions

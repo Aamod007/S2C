@@ -1,32 +1,21 @@
 import { QueryCtx, MutationCtx } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 
+/**
+ * Resolves the authenticated Clerk identity to our users-table id.
+ * Returns null if unauthenticated or if the Clerk user has no matching
+ * users row yet (e.g. before the user sync mutation has run).
+ */
 export async function getAuthUserId(ctx: QueryCtx | MutationCtx): Promise<Id<"users"> | null> {
   const identity = await ctx.auth.getUserIdentity();
-  
-  if (identity) {
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-      .unique();
-    return user?._id ?? null;
+  if (!identity) {
+    return null;
   }
 
-  // BYPASS LOGIN FOR NOW: If not authenticated, just return the first user in the database
-  const firstUser = await ctx.db.query("users").first();
-  if (firstUser) {
-    return firstUser._id;
-  }
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+    .unique();
 
-  // If no users exist, create a dummy one
-  if ('insert' in ctx.db) {
-      const dummyId = await (ctx.db as any).insert("users", {
-        clerkId: "dummy_clerk_id",
-        name: "Test User",
-        email: "test@example.com",
-      });
-      return dummyId;
-  }
-  
-  return null;
+  return user?._id ?? null;
 }
