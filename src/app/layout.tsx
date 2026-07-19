@@ -1,3 +1,5 @@
+import {ClerkProvider} from "@clerk/nextjs";
+import { shadcn } from '@clerk/ui/themes';
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -33,21 +35,23 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ConvexClientProvider>
+        <ClerkProvider appearance={{ theme: shadcn }}>
+          <ConvexClientProvider>
           <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            forcedTheme="dark"
-            disableTransitionOnChange
+          attribute="class"
+          defaultTheme="dark"
+          forcedTheme="dark"
+          disableTransitionOnChange
           >
-            <StoreProvider>
-              <TooltipProvider>
-                {children}
-              </TooltipProvider>
-            </StoreProvider>
-            <Toaster richColors position="bottom-right" />
+          <StoreProvider>
+          <TooltipProvider>
+          {children}
+          </TooltipProvider>
+          </StoreProvider>
+          <Toaster richColors position="bottom-right" />
           </ThemeProvider>
-        </ConvexClientProvider>
+          </ConvexClientProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

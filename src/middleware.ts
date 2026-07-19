@@ -1,42 +1,20 @@
-import {
-  convexAuthNextjsMiddleware,
-  createRouteMatcher,
-  nextjsMiddlewareRedirect,
-} from "@convex-dev/auth/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
-const isPublicRoute = createRouteMatcher([
-  "/",
-  "/auth/signin",
-  "/auth/signup",
-]);
+const isPublicRoute = createRouteMatcher(['/auth/signin(.*)', '/auth/signup(.*)', '/'])
 
-const isAuthRoute = createRouteMatcher([
-  "/auth/signin",
-  "/auth/signup",
-]);
-
-export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
-  const isAuthenticated = await convexAuth.isAuthenticated();
-
-  // If authenticated user visits auth pages, redirect to dashboard
-  if (isAuthenticated && isAuthRoute(request)) {
-    return nextjsMiddlewareRedirect(request, "/dashboard");
+export default clerkMiddleware(async (auth, request) => {
+  if (!isPublicRoute(request)) {
+    await auth.protect()
   }
-
-  // If unauthenticated user visits protected routes, redirect to signin
-  if (!isAuthenticated && !isPublicRoute(request)) {
-    return nextjsMiddlewareRedirect(request, "/auth/signin");
-  }
-});
+})
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
-     */
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    // Skip Next.js internals and all static files, unless found in search params
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Always run for API routes
+    '/(api|trpc)(.*)',
+    // Clerk auto-proxy
+    '/__clerk/:path*',
   ],
-};
+}
