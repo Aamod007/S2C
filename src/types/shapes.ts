@@ -82,8 +82,13 @@ export interface TextShape extends BaseShape {
 export interface GeneratedUIShape extends BaseShape {
   type: "generated-ui";
   htmlContent?: string;
-  uiSpecData?: unknown;
+  /** The generated HTML string (streamed in progressively; null/"" = pending). */
+  uiSpecData?: string | null;
   sourceFrameId?: string;
+  /** Display name for the card header ("Screen 1", derived page name, …). */
+  name?: string;
+  /** Streaming lifecycle for the DOM card (spec §7.2 step 6). */
+  status?: "streaming" | "ready" | "error";
 }
 
 export type Shape =

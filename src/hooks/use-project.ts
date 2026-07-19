@@ -2,6 +2,7 @@
 
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
   createStart,
@@ -57,7 +58,7 @@ export function useProject() {
       dispatch(removeProject(projectId));
       
       try {
-        await deleteMutation({ projectId: projectId as any });
+        await deleteMutation({ projectId: projectId as Id<"projects"> });
         toast.success("Project deleted");
       } catch (error) {
         // Rollback on failure (simplified, in a real app we'd save the previous state)

@@ -6,7 +6,8 @@
     "strict": true,
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
-    "module": "ESNext"
+    "module": "ESNext",
+    "noEmit": true
   },
   "include": ["./**/*"],
   "exclude": ["./_generated"]

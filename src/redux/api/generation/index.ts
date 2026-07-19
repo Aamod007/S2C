@@ -4,7 +4,7 @@ export const generationApi = createApi({
   reducerPath: "generationApi",
   baseQuery: fetchBaseQuery({ baseUrl: "/api" }),
   endpoints: (builder) => ({
-    generate: builder.mutation<any, FormData>({
+    generate: builder.mutation<unknown, FormData>({
       query: (body) => ({
         url: "/generate",
         method: "POST",
@@ -12,7 +12,7 @@ export const generationApi = createApi({
       }),
     }),
     redesign: builder.mutation<
-      any,
+      unknown,
       { shapeId: string; message: string; html: string; projectId: string }
     >({
       query: (body) => ({
@@ -22,7 +22,7 @@ export const generationApi = createApi({
       }),
     }),
     generateWorkflow: builder.mutation<
-      any,
+      unknown,
       { frameId: string; projectId: string }
     >({
       query: (body) => ({
@@ -32,7 +32,7 @@ export const generationApi = createApi({
       }),
     }),
     redesignWorkflow: builder.mutation<
-      any,
+      unknown,
       { shapeId: string; message: string; html: string; projectId: string }
     >({
       query: (body) => ({

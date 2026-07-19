@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useInfinityCanvas } from "@/hooks/use-canvas";
 import { useCanvasDrawing } from "@/hooks/use-canvas-drawing";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
@@ -13,10 +13,25 @@ import { Button } from "@/components/ui/button";
 import { Toolbar } from "./Toolbar";
 import { TextEditOverlay } from "./text-edit-overlay";
 import { TextSidebar } from "./text-sidebar";
+import { GeneratedUIOverlay } from "./generated-ui-overlay";
+import { FrameActionButtons } from "./frame-action-buttons";
+import { ChatPanel } from "./chat-panel";
 
-export function CanvasContainer() {
+export function CanvasContainer({
+  projectId,
+  projectName,
+}: {
+  projectId: string;
+  projectName?: string;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const draftShapeRef = useRef<Shape | null>(null);
+
+  // Which generated-ui shape's chat panel is open (null = closed).
+  const [activeChatShapeId, setActiveChatShapeId] = useState<string | null>(null);
+  const toggleChat = useCallback((shapeId: string) => {
+    setActiveChatShapeId((current) => (current === shapeId ? null : shapeId));
+  }, []);
 
   // Attach the core event handlers
   useInfinityCanvas(canvasRef);
@@ -30,6 +45,10 @@ export function CanvasContainer() {
   const translate = useAppSelector((state) => state.viewport.translate);
   const shapes = useAppSelector(shapesSelectors.selectAll);
   const selectedIds = useAppSelector((state) => state.shapes.selectedIds);
+  // Export filenames use the project name when the list has it loaded.
+  const storedProjectName = useAppSelector(
+    (state) => state.projects.projects.find((p) => p._id === projectId)?.name
+  );
 
   // Zoom ± buttons: reuse wheelZoom, anchored at the canvas center.
   const zoomByButton = useCallback(
@@ -199,12 +218,9 @@ export function CanvasContainer() {
           ctx.textBaseline = "top";
           ctx.fillText(s.text, s.x, s.y);
         } else if (s.type === "generated-ui") {
-          // Placeholder box until the DOM-rendered generated UI lands.
-          ctx.beginPath();
-          ctx.rect(s.x, s.y, s.width, s.height);
-          ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
-          ctx.fill();
-          ctx.stroke();
+          // Body is rendered by the DOM overlay (GeneratedUIOverlay); the
+          // canvas draws nothing so the card shows through. Selection
+          // outline/handles still come from the selection overlay below.
         }
 
         ctx.restore();
@@ -273,6 +289,28 @@ export function CanvasContainer() {
         style={{ cursor }}
         tabIndex={0}
       />
+
+      {/* DOM layer: generated-ui cards positioned in world space, mirroring
+          the canvas viewport transform. pointer-events: none except headers,
+          so canvas tools keep working over card bodies. */}
+      <GeneratedUIOverlay
+        projectName={storedProjectName ?? projectName ?? "project"}
+        onToggleChat={toggleChat}
+        activeChatShapeId={activeChatShapeId}
+      />
+
+      {/* Floating Generate Design / Generate Workflow actions for the
+          single-selected frame. */}
+      <FrameActionButtons projectId={projectId} />
+
+      {activeChatShapeId && (
+        <ChatPanel
+          key={activeChatShapeId}
+          shapeId={activeChatShapeId}
+          projectId={projectId}
+          onClose={() => setActiveChatShapeId(null)}
+        />
+      )}
 
       {editingTextId && (
         <TextEditOverlay

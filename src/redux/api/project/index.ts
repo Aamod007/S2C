@@ -4,13 +4,16 @@ export const projectApi = createApi({
   reducerPath: "projectApi",
   baseQuery: fetchBaseQuery({ baseUrl: "/api" }),
   endpoints: (builder) => ({
+    // Matches PATCH /api/project (src/app/api/project/route.ts): camelCase
+    // keys, no userId — the route authenticates via Clerk and resolves the
+    // Convex user itself. Returns { status: "queued" } once the Inngest
+    // autosave job is enqueued.
     autosaveProject: builder.mutation<
-      void,
+      { status: string },
       {
         projectId: string;
-        sketches_data: any;
-        viewport_data?: any;
-        userId: string;
+        sketchesData: unknown;
+        viewportData?: unknown;
       }
     >({
       query: (body) => ({
