@@ -76,6 +76,9 @@ export async function PATCH(request: NextRequest) {
         projectId,
         sketchesData,
         viewportData,
+        // Monotonic snapshot timestamp — lets the workflow reject stale
+        // saves that get retried/reordered after a newer one landed.
+        savedAt: Date.now(),
       },
     });
 

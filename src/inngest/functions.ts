@@ -173,15 +173,19 @@ export const handlePolarEvent = inngest.createFunction(
 export const autosaveProjectWorkflow = inngest.createFunction(
   {
     id: "autosave-project-workflow",
+    // One save per project at a time — prevents concurrent jobs racing.
+    concurrency: [{ key: "event.data.projectId", limit: 1 }],
     triggers: [{ event: "project/autosave.requested" }],
   },
   async ({ event, step }) => {
-    const { userId, projectId, sketchesData, viewportData } = event.data as {
-      userId: string;
-      projectId: string;
-      sketchesData: unknown;
-      viewportData?: unknown;
-    };
+    const { userId, projectId, sketchesData, viewportData, savedAt } =
+      event.data as {
+        userId: string;
+        projectId: string;
+        sketchesData: unknown;
+        viewportData?: unknown;
+        savedAt?: number;
+      };
 
     if (typeof userId !== "string" || typeof projectId !== "string") {
       throw new NonRetriableError("autosave event missing userId/projectId");
@@ -193,6 +197,10 @@ export const autosaveProjectWorkflow = inngest.createFunction(
         projectId: projectId as Id<"projects">,
         sketches_data: sketchesData,
         viewport_data: viewportData,
+        // Staleness guard: the mutation skips the patch if a newer snapshot
+        // (higher saved_at) already landed — retried/reordered jobs can't
+        // revert newer data.
+        saved_at: savedAt,
       });
     });
 

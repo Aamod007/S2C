@@ -11,7 +11,6 @@ import {
   projectApi,
   styleGuideApi,
   billingApi,
-  generationApi,
 } from "./api";
 
 // Register RTK Query reducers explicitly (not via Object.fromEntries) so their
@@ -25,7 +24,6 @@ const rootReducer = combineReducers({
   [projectApi.reducerPath]: projectApi.reducer,
   [styleGuideApi.reducerPath]: styleGuideApi.reducer,
   [billingApi.reducerPath]: billingApi.reducer,
-  [generationApi.reducerPath]: generationApi.reducer,
 });
 
 export type RootState = ReturnType<typeof rootReducer>;

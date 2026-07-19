@@ -59,8 +59,9 @@ export function CanvasContainer({
       dispatch(
         wheelZoom({
           deltaY: direction * -250, // 0.999^-250 ≈ 1.28x per click
-          clientX: rect.left + rect.width / 2,
-          clientY: rect.top + rect.height / 2,
+          // wheelZoom expects canvas-local coords (same space as translate)
+          clientX: rect.width / 2,
+          clientY: rect.height / 2,
         })
       );
     },

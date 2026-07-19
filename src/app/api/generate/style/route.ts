@@ -69,16 +69,13 @@ export async function POST(request: Request) {
       ],
     });
 
-    // Persist to projects.style_guide. NOTE: projects.update does not yet
-    // declare a style_guide arg (convex/projects.ts is owned by another
-    // agent) — the cast keeps this forward-compatible; until the arg is
-    // added, Convex rejects it and we surface `saved: false`.
+    // Persist to projects.style_guide (declared as v.optional(v.any()) in
+    // convex/projects.ts update args).
     let saved = true;
     try {
       await fetchMutation(
         api.projects.update,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { projectId: ctx.projectId, style_guide: styleGuide } as any,
+        { projectId: ctx.projectId, style_guide: styleGuide },
         { token: ctx.token }
       );
     } catch (error) {

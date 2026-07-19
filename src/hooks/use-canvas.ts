@@ -27,9 +27,12 @@ export function useInfinityCanvas(canvasRef: RefObject<HTMLCanvasElement | null>
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
 
-      // Accumulate wheel events
-      pendingWheelEventRef.current.clientX = e.clientX;
-      pendingWheelEventRef.current.clientY = e.clientY;
+      // Accumulate wheel events. Store canvas-LOCAL coords — the viewport
+      // translate lives in canvas-local space (see getLocalPoint in
+      // use-canvas-drawing.ts), so the zoom fixed-point math must too.
+      const rect = canvas.getBoundingClientRect();
+      pendingWheelEventRef.current.clientX = e.clientX - rect.left;
+      pendingWheelEventRef.current.clientY = e.clientY - rect.top;
 
       if (e.ctrlKey || e.metaKey) {
         // Zoom

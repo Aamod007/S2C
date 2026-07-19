@@ -161,6 +161,7 @@ export const updateSketchesFromWorkflow = mutation({
     projectId: v.id("projects"),
     sketches_data: v.any(),
     viewport_data: v.optional(v.any()),
+    saved_at: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -168,9 +169,20 @@ export const updateSketchesFromWorkflow = mutation({
       throw new Error("Project not found or unauthorized");
     }
 
+    // Staleness guard: autosave jobs can be retried/reordered by Inngest.
+    // If a newer snapshot already landed, skip — never revert newer data.
+    if (
+      args.saved_at !== undefined &&
+      project.sketches_saved_at !== undefined &&
+      args.saved_at <= project.sketches_saved_at
+    ) {
+      return { skipped: "stale" };
+    }
+
     await ctx.db.patch(args.projectId, {
       sketches_data: args.sketches_data,
       viewport_data: args.viewport_data,
+      sketches_saved_at: args.saved_at,
       last_modified: Date.now(),
     });
   },

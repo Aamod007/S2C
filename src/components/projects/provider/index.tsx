@@ -81,9 +81,17 @@ export function ProjectProvider({
     if (hydratedRef.current === projectId) return; // live-query refire — ignore
     hydratedRef.current = projectId;
 
-    const sketches: Shape[] = Array.isArray(project.sketches_data)
+    const rawSketches: Shape[] = Array.isArray(project.sketches_data)
       ? (project.sketches_data as Shape[])
       : [];
+    // A snapshot persisted mid-generation carries status: "streaming" —
+    // the stream died with the old tab, so downgrade to a terminal state.
+    // Partial HTML → "ready" (still viewable); empty → "error".
+    const sketches: Shape[] = rawSketches.map((s) =>
+      s.type === "generated-ui" && s.status === "streaming"
+        ? { ...s, status: s.uiSpecData ? "ready" : "error" }
+        : s
+    );
     dispatch(loadProject(sketches));
 
     // Normalize viewport_data down to exactly { scale, translate: { x, y } }

@@ -23,6 +23,8 @@ export default defineSchema({
     style_guide: v.optional(v.any()),
     sketches_data: v.optional(v.any()),
     viewport_data: v.optional(v.any()),
+    // Monotonic timestamp of the last-applied autosave snapshot (staleness guard)
+    sketches_saved_at: v.optional(v.number()),
     mood_board_images: v.optional(v.array(v.string())),
     inspiration_images: v.optional(v.array(v.string())),
     last_modified: v.number(),
