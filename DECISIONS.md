@@ -41,3 +41,10 @@ Paste this into every new phase's prompt so the AI stays consistent with the act
 - **Workflow derive mode**: `pageType` sent as `"{name}: {description}"` truncated to the route's 200-char cap; derive call is per the route's improved dynamic-pages contract (no hardcoded page list).
 - **Chat panel placement**: fixed right-side panel (spec §7.3 leaves anchoring open). Assistant bubbles show a compact "Design updated ✓" receipt rather than dumping the full replacement HTML in the bubble; on stream error the shape's HTML is rolled back to its pre-redesign value.
 - **Frame snapshot export scale**: flat 2x, shrunk so the longest edge ≤ 2000px (spec §6.7 leaves sizing open); world-space stroke widths (no `/viewportScale` — export has no screen-constant sizing).
+
+## Seam-review fixes (2026-07-19)
+
+- **Zoom anchor**: `wheelZoom` payload coords are canvas-LOCAL (translate lives in canvas-local space); `use-canvas.ts` subtracts `getBoundingClientRect()` before dispatch.
+- **Autosave staleness guard**: `projects.sketches_saved_at` (new schema field) + `savedAt` in the Inngest event + per-project concurrency limit 1 — retried/reordered jobs can no longer revert newer snapshots.
+- **GeneratedUI hydration**: persisted `status: "streaming"` is downgraded on load (partial HTML → ready, empty → error) in the ProjectProvider.
+- **generationApi RTK slice removed**: contracts mismatched the real routes and fetchBaseQuery buffers streaming responses; streaming clients are raw fetch in use-frame/use-chat-window. styleGuideApi/projectApi/billingApi remain.
