@@ -1,7 +1,7 @@
-import { FrameShape } from "@/redux/slice/shapes";
-import { LiquidGlassButton } from "@/components/buttons/liquid-glass";
+import { FrameShape } from "@/redux/slices/shapes";
+
 import { Brush, Palette } from "lucide-react";
-import { useFrame } from "@/hooks/use-canvas";
+
 
 export const Frame = ({
   shape,
@@ -10,7 +10,7 @@ export const Frame = ({
   shape: FrameShape;
   toggleInspiration: () => void;
 }) => {
-  const { isGenerating, handleGenerateDesign } = useFrame(shape);
+  const isGenerating = false;
 
   return (
     <>
@@ -44,15 +44,15 @@ export const Frame = ({
         onClick={(e) => {
           e.stopPropagation();
         }}>
-        <LiquidGlassButton
+        {/*<LiquidGlassButton
           size="sm"
           variant="subtle"
           onClick={toggleInspiration}
           style={{ pointerEvents: "auto" }}>
           <Palette size={12} />
           Inspiration
-        </LiquidGlassButton>
-        <LiquidGlassButton
+        </LiquidGlassButton>*/}
+        {/*<LiquidGlassButton
           size="sm"
           variant="subtle"
           onClick={handleGenerateDesign}
@@ -61,7 +61,7 @@ export const Frame = ({
           style={{ pointerEvents: "auto" }}>
           <Brush size={12} className={isGenerating ? "animate-spin" : ""} />
           {isGenerating ? "Generating..." : "Generate Design"}
-        </LiquidGlassButton>
+        </LiquidGlassButton>*/}
       </div>
     </>
   );

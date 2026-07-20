@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { removeShape, shapesSelectors, updateShape } from "@/redux/slices/shapes";
 import { worldToScreen } from "@/redux/slices/viewport";
-import { TextShape } from "@/types/shapes";
+import { TextShape } from "@/redux/slices/shapes";
 
 interface TextEditOverlayProps {
   editingTextId: string;
@@ -59,7 +59,7 @@ export function TextEditOverlay({ editingTextId, onDone }: TextEditOverlayProps)
     if (text === "") {
       dispatch(removeShape(shape.id));
     } else {
-      dispatch(updateShape({ id: shape.id, changes: { text } }));
+      dispatch(updateShape({ id: shape.id, patch: { text } }));
     }
     onDone();
   };
@@ -105,3 +105,4 @@ export function TextEditOverlay({ editingTextId, onDone }: TextEditOverlayProps)
     />
   );
 }
+

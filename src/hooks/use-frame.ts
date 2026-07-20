@@ -10,7 +10,7 @@ import {
   shapesSelectors,
   updateShape,
 } from "@/redux/slices/shapes";
-import { FrameShape, GeneratedUIShape, Shape } from "@/types/shapes";
+import { FrameShape, GeneratedUIShape, Shape } from "@/redux/slices/shapes";
 import { generateFrameSnapshot } from "@/lib/frame-snapshot";
 
 /** Gap between a frame and its generated design / between workflow pages. */
@@ -130,15 +130,17 @@ export function useFrame(projectId: string) {
         dispatch(
           addGeneratedUI({
             id: shapeId,
-            type: "generated-ui",
-            x: frame.x + frame.width + GENERATED_GAP,
+            type: "generatedui",
+            x: frame.x + frame.w + GENERATED_GAP,
             y: frame.y,
-            width: frame.width,
-            height: frame.height,
+            w: frame.w,
+            h: frame.h,
             uiSpecData: "",
             sourceFrameId: frame.id,
             name: `Screen ${frameNumber}`,
             status: "streaming",
+            stroke: "transparent",
+            strokeWidth: 0,
           } satisfies GeneratedUIShape as Shape)
         );
         placeholderAdded = true;
@@ -153,7 +155,7 @@ export function useFrame(projectId: string) {
           dispatch(
             updateShape({
               id: shapeId,
-              changes: { uiSpecData: acc } as Partial<Shape>,
+              patch: { uiSpecData: acc } as Partial<Shape>,
             })
           )
         );
@@ -161,7 +163,7 @@ export function useFrame(projectId: string) {
         dispatch(
           updateShape({
             id: shapeId,
-            changes: { uiSpecData: html, status: "ready" } as Partial<Shape>,
+            patch: { uiSpecData: html, status: "ready" } as Partial<Shape>,
           })
         );
         toast.success(`Design generated for frame ${frameNumber}`);
@@ -202,24 +204,24 @@ export function useFrame(projectId: string) {
         }
 
         // 2. Placeholders laid out left→right after the main design.
-        let nextX = mainShape.x + mainShape.width + GENERATED_GAP;
+        let nextX = mainShape.x + mainShape.w + GENERATED_GAP;
         const jobs = pages.map((page) => {
           const id = uuidv4();
           dispatch(
             addGeneratedUI({
               id,
-              type: "generated-ui",
+              type: "generatedui",
               x: nextX,
               y: mainShape.y,
-              width: mainShape.width,
-              height: mainShape.height,
+              w: mainShape.w,
+              h: mainShape.h,
               uiSpecData: "",
               sourceFrameId: frame.id,
               name: page.name,
               status: "streaming",
             } satisfies GeneratedUIShape as Shape)
           );
-          nextX += mainShape.width + GENERATED_GAP;
+          nextX += mainShape.w + GENERATED_GAP;
           return { id, page };
         });
 
@@ -249,7 +251,7 @@ export function useFrame(projectId: string) {
                 dispatch(
                   updateShape({
                     id,
-                    changes: { uiSpecData: acc } as Partial<Shape>,
+                    patch: { uiSpecData: acc } as Partial<Shape>,
                   })
                 ),
               WORKFLOW_FLUSH_MS
@@ -257,7 +259,7 @@ export function useFrame(projectId: string) {
             dispatch(
               updateShape({
                 id,
-                changes: { uiSpecData: html, status: "ready" } as Partial<Shape>,
+                patch: { uiSpecData: html, status: "ready" } as Partial<Shape>,
               })
             );
           })
@@ -271,7 +273,7 @@ export function useFrame(projectId: string) {
             dispatch(
               updateShape({
                 id: jobs[i].id,
-                changes: { status: "error" } as Partial<Shape>,
+                patch: { status: "error" } as Partial<Shape>,
               })
             );
           }
@@ -301,3 +303,4 @@ export function useFrame(projectId: string) {
 
   return { generateDesign, generateWorkflow, busyFrameIds };
 }
+

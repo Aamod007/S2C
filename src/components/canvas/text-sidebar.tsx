@@ -2,7 +2,7 @@
 
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { shapesSelectors, updateShape } from "@/redux/slices/shapes";
-import { TextShape } from "@/types/shapes";
+import { TextShape } from "@/redux/slices/shapes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,7 +38,7 @@ const COLOR_SWATCHES = [
  */
 export function TextSidebar() {
   const dispatch = useAppDispatch();
-  const selectedIds = useAppSelector((state) => state.shapes.selectedIds);
+  const selectedIds = useAppSelector((state) => Object.keys(state.shapes.selected));
   const shape = useAppSelector((state) =>
     selectedIds.length === 1
       ? shapesSelectors.selectById(state, selectedIds[0])
@@ -48,7 +48,7 @@ export function TextSidebar() {
   if (!shape || shape.type !== "text") return null;
   const text = shape as TextShape;
 
-  const set = (changes: Partial<TextShape>) =>
+  const set = (patch: Partial<TextShape>) =>
     dispatch(updateShape({ id: text.id, changes }));
 
   const isBold = text.fontWeight === "bold";
@@ -140,3 +140,4 @@ export function TextSidebar() {
     </div>
   );
 }
+

@@ -13,7 +13,7 @@ import {
   updateStreamingContent,
 } from "@/redux/slices/chat";
 import { shapesSelectors, updateShape } from "@/redux/slices/shapes";
-import { GeneratedUIShape, Shape } from "@/types/shapes";
+import { GeneratedUIShape, Shape } from "@/redux/slices/shapes";
 import {
   readHtmlStream,
   toGenerationError,
@@ -65,7 +65,7 @@ export function useChatWindow(shapeId: string, projectId: string) {
       dispatch(
         updateShape({
           id: shapeId,
-          changes: { status: "streaming" } as Partial<Shape>,
+          patch: { status: "streaming" } as Partial<Shape>,
         })
       );
 
@@ -90,7 +90,7 @@ export function useChatWindow(shapeId: string, projectId: string) {
           dispatch(
             updateShape({
               id: shapeId,
-              changes: { uiSpecData: acc } as Partial<Shape>,
+              patch: { uiSpecData: acc } as Partial<Shape>,
             })
           );
         });
@@ -100,7 +100,7 @@ export function useChatWindow(shapeId: string, projectId: string) {
         dispatch(
           updateShape({
             id: shapeId,
-            changes: { uiSpecData: html, status: "ready" } as Partial<Shape>,
+            patch: { uiSpecData: html, status: "ready" } as Partial<Shape>,
           })
         );
         toast.success("Design updated");
@@ -119,7 +119,7 @@ export function useChatWindow(shapeId: string, projectId: string) {
         dispatch(
           updateShape({
             id: shapeId,
-            changes: {
+            patch: {
               uiSpecData: currentHtml,
               status: "ready",
             } as Partial<Shape>,
@@ -139,3 +139,4 @@ export function useChatWindow(shapeId: string, projectId: string) {
 
   return { messages, isStreaming, send };
 }
+

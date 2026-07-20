@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { removeShape, removeShapes, clearShapes } from "@/redux/slices/shapes";
+import { removeShape, clearAll } from "@/redux/slices/shapes";
 
 interface ChatMessage {
   id: string;
@@ -129,10 +129,7 @@ const chatSlice = createSlice({
       .addCase(removeShape, (state, action) => {
         delete state.sessions[action.payload];
       })
-      .addCase(removeShapes, (state, action) => {
-        for (const id of action.payload) delete state.sessions[id];
-      })
-      .addCase(clearShapes, (state) => {
+      .addCase(clearAll, (state) => {
         state.sessions = {};
       });
   },

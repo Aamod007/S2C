@@ -1,10 +1,10 @@
-import { Shape } from "@/types/shapes";
+import { Shape } from "@/redux/slices/shapes";
 
 export interface Bounds {
   x: number;
   y: number;
-  width: number;
-  height: number;
+  w: number;
+  h: number;
 }
 
 export type HandleCorner = "nw" | "ne" | "sw" | "se";
@@ -36,13 +36,13 @@ export function getShapeBounds(shape: Shape): Bounds {
       return {
         x,
         y,
-        width: Math.abs(shape.endX - shape.startX),
-        height: Math.abs(shape.endY - shape.startY),
+        w: Math.abs(shape.endX - shape.startX),
+        h: Math.abs(shape.endY - shape.startY),
       };
     }
-    case "free-draw": {
+    case "freedraw": {
       if (!shape.points || shape.points.length === 0) {
-        return { x: shape.x, y: shape.y, width: shape.width, height: shape.height };
+        return { x: shape.x, y: shape.y, w: shape.w, h: shape.h };
       }
       let minX = Infinity;
       let minY = Infinity;
@@ -54,19 +54,19 @@ export function getShapeBounds(shape: Shape): Bounds {
         if (p.x > maxX) maxX = p.x;
         if (p.y > maxY) maxY = p.y;
       }
-      return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+      return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
     }
     case "text": {
       const fontSize = shape.fontSize ?? DEFAULT_FONT_SIZE;
       return {
         x: shape.x - TEXT_HIT_PADDING,
         y: shape.y - TEXT_HIT_PADDING,
-        width: shape.text.length * fontSize * 0.6 + TEXT_HIT_PADDING * 2,
-        height: fontSize * 1.4 + TEXT_HIT_PADDING * 2,
+        w: shape.text.length * fontSize * 0.6 + TEXT_HIT_PADDING * 2,
+        h: fontSize * 1.4 + TEXT_HIT_PADDING * 2,
       };
     }
     default:
-      return { x: shape.x, y: shape.y, width: shape.width, height: shape.height };
+      return { x: shape.x, y: shape.y, w: shape.w, h: shape.h };
   }
 }
 
@@ -89,7 +89,7 @@ export function distanceToSegment(
 }
 
 function isPointInBounds(b: Bounds, wx: number, wy: number): boolean {
-  return wx >= b.x && wx <= b.x + b.width && wy >= b.y && wy <= b.y + b.height;
+  return wx >= b.x && wx <= b.x + b.w && wy >= b.y && wy <= b.y + b.h;
 }
 
 /**
@@ -103,7 +103,7 @@ export function isPointInShape(
   scale: number
 ): boolean {
   switch (shape.type) {
-    case "free-draw": {
+    case "freedraw": {
       const threshold = FREE_DRAW_HIT_THRESHOLD / scale;
       const points = shape.points;
       if (!points || points.length === 0) return false;
@@ -155,9 +155,9 @@ export function getResizeHandles(
 ): { corner: HandleCorner; x: number; y: number }[] {
   return [
     { corner: "nw", x: bounds.x, y: bounds.y },
-    { corner: "ne", x: bounds.x + bounds.width, y: bounds.y },
-    { corner: "sw", x: bounds.x, y: bounds.y + bounds.height },
-    { corner: "se", x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+    { corner: "ne", x: bounds.x + bounds.w, y: bounds.y },
+    { corner: "sw", x: bounds.x, y: bounds.y + bounds.h },
+    { corner: "se", x: bounds.x + bounds.w, y: bounds.y + bounds.h },
   ];
 }
 
@@ -184,11 +184,11 @@ export function getAnchorForCorner(
 ): { x: number; y: number } {
   switch (corner) {
     case "nw":
-      return { x: bounds.x + bounds.width, y: bounds.y + bounds.height };
+      return { x: bounds.x + bounds.w, y: bounds.y + bounds.h };
     case "ne":
-      return { x: bounds.x, y: bounds.y + bounds.height };
+      return { x: bounds.x, y: bounds.y + bounds.h };
     case "sw":
-      return { x: bounds.x + bounds.width, y: bounds.y };
+      return { x: bounds.x + bounds.w, y: bounds.y };
     case "se":
       return { x: bounds.x, y: bounds.y };
   }
@@ -206,8 +206,8 @@ export function boundsFromAnchor(
   return {
     x: Math.min(anchor.x, px),
     y: Math.min(anchor.y, py),
-    width: Math.abs(px - anchor.x),
-    height: Math.abs(py - anchor.y),
+    w: Math.abs(px - anchor.x),
+    h: Math.abs(py - anchor.y),
   };
 }
 
@@ -222,17 +222,17 @@ export function resizeShape(
   newBounds: Bounds
 ): Partial<Shape> {
   switch (baseline.type) {
-    case "free-draw": {
+    case "freedraw": {
       // Proportionally rescale every point relative to the new bounds.
       const scaleX =
-        initialBounds.width === 0 ? 1 : newBounds.width / initialBounds.width;
+        initialBounds.w === 0 ? 1 : newBounds.w / initialBounds.w;
       const scaleY =
-        initialBounds.height === 0 ? 1 : newBounds.height / initialBounds.height;
+        initialBounds.h === 0 ? 1 : newBounds.h / initialBounds.h;
       return {
         x: newBounds.x,
         y: newBounds.y,
-        width: newBounds.width,
-        height: newBounds.height,
+        w: newBounds.w,
+        h: newBounds.h,
         points: baseline.points.map((p) => ({
           x: newBounds.x + (p.x - initialBounds.x) * scaleX,
           y: newBounds.y + (p.y - initialBounds.y) * scaleY,
@@ -246,30 +246,30 @@ export function resizeShape(
       // the collapsed axis; otherwise preserve the endpoints' relative
       // position within the bounds (t = 0 or 1 per axis).
       const tStartX =
-        initialBounds.width === 0
+        initialBounds.w === 0
           ? 0.5
-          : (baseline.startX - initialBounds.x) / initialBounds.width;
+          : (baseline.startX - initialBounds.x) / initialBounds.w;
       const tStartY =
-        initialBounds.height === 0
+        initialBounds.h === 0
           ? 0.5
-          : (baseline.startY - initialBounds.y) / initialBounds.height;
+          : (baseline.startY - initialBounds.y) / initialBounds.h;
       const tEndX =
-        initialBounds.width === 0
+        initialBounds.w === 0
           ? 0.5
-          : (baseline.endX - initialBounds.x) / initialBounds.width;
+          : (baseline.endX - initialBounds.x) / initialBounds.w;
       const tEndY =
-        initialBounds.height === 0
+        initialBounds.h === 0
           ? 0.5
-          : (baseline.endY - initialBounds.y) / initialBounds.height;
+          : (baseline.endY - initialBounds.y) / initialBounds.h;
       return {
         x: newBounds.x,
         y: newBounds.y,
-        width: newBounds.width,
-        height: newBounds.height,
-        startX: newBounds.x + tStartX * newBounds.width,
-        startY: newBounds.y + tStartY * newBounds.height,
-        endX: newBounds.x + tEndX * newBounds.width,
-        endY: newBounds.y + tEndY * newBounds.height,
+        w: newBounds.w,
+        h: newBounds.h,
+        startX: newBounds.x + tStartX * newBounds.w,
+        startY: newBounds.y + tStartY * newBounds.h,
+        endX: newBounds.x + tEndX * newBounds.w,
+        endY: newBounds.y + tEndY * newBounds.h,
       } as Partial<Shape>;
     }
     case "text": {
@@ -278,9 +278,9 @@ export function resizeShape(
       // by the hit padding baked into getShapeBounds and (b) be ignored by
       // the renderer, snapping the selection box back on release.
       const ratio =
-        initialBounds.height === 0
+        initialBounds.h === 0
           ? 1
-          : newBounds.height / initialBounds.height;
+          : newBounds.h / initialBounds.h;
       const fontSize = Math.max(
         4,
         (baseline.fontSize ?? DEFAULT_FONT_SIZE) * ratio
@@ -292,13 +292,13 @@ export function resizeShape(
         fontSize,
       } as Partial<Shape>;
     }
-    case "generated-ui":
+    case "generatedui":
       // Height is owned by the DOM card's ResizeObserver (content-driven);
       // dispatching it here would fight the observer mid-drag.
       return {
         x: newBounds.x,
         y: newBounds.y,
-        width: newBounds.width,
+        w: newBounds.w,
       };
     // rect/ellipse/frame: opposite corner anchors,
     // bounds already normalized by boundsFromAnchor.
@@ -306,8 +306,9 @@ export function resizeShape(
       return {
         x: newBounds.x,
         y: newBounds.y,
-        width: newBounds.width,
-        height: newBounds.height,
+        w: newBounds.w,
+        h: newBounds.h,
       };
   }
 }
+

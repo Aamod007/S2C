@@ -1,4 +1,4 @@
-import { RectShape } from "@/redux/slice/shapes";
+import { RectShape } from "@/redux/slices/shapes";
 
 export const Rectangle = ({ shape }: { shape: RectShape }) => (
   <div

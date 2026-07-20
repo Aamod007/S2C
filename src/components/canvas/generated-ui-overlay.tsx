@@ -7,7 +7,7 @@ import { Download, Loader2, MessageSquare, Trash2, TriangleAlert } from "lucide-
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { removeShape, shapesSelectors, updateShape } from "@/redux/slices/shapes";
 import { removeChat } from "@/redux/slices/chat";
-import { GeneratedUIShape, Shape } from "@/types/shapes";
+import { GeneratedUIShape, Shape } from "@/redux/slices/shapes";
 import { sanitizeHtml } from "@/lib/sanitize-html";
 import { Button } from "@/components/ui/button";
 
@@ -48,7 +48,7 @@ export function GeneratedUIOverlay({
   const shapes = useAppSelector(shapesSelectors.selectAll);
 
   const cards = shapes.filter(
-    (s): s is GeneratedUIShape => s.type === "generated-ui"
+    (s): s is GeneratedUIShape => s.type === "generatedui"
   );
   if (cards.length === 0) return null;
 
@@ -94,10 +94,10 @@ const GeneratedUICard = memo(function GeneratedUICard({
   const dispatch = useAppDispatch();
   const cardRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const lastHeightRef = useRef(shape.height);
+  const lastHeightRef = useRef(shape.h);
   // Keep the epsilon baseline in sync with external height changes (e.g.
   // project re-hydration) so the observer compares against reality.
-  lastHeightRef.current = shape.height;
+  lastHeightRef.current = shape.h;
 
   const html = typeof shape.uiSpecData === "string" ? shape.uiSpecData : "";
   const isStreaming = shape.status === "streaming";
@@ -124,7 +124,7 @@ const GeneratedUICard = memo(function GeneratedUICard({
         dispatch(
           updateShape({
             id: shape.id,
-            changes: { height: measured } as Partial<Shape>,
+            patch: { height: measured } as Partial<Shape>,
           })
         );
       }
@@ -174,9 +174,9 @@ const GeneratedUICard = memo(function GeneratedUICard({
       style={{
         left: shape.x,
         top: shape.y,
-        width: shape.width,
+        width: shape.w,
         minHeight: HEADER_HEIGHT,
-        opacity: shape.opacity ?? 1,
+        opacity: 1 ?? 1,
       }}
     >
       {/* Header chrome — the only pointer-interactive part of the card. */}
@@ -240,7 +240,7 @@ const GeneratedUICard = memo(function GeneratedUICard({
         ) : (
           <div
             className="flex items-center justify-center text-xs text-muted-foreground"
-            style={{ height: Math.max(shape.height - HEADER_HEIGHT, 120) }}
+            style={{ height: Math.max(shape.h - HEADER_HEIGHT, 120) }}
           >
             {isError ? "Generation failed" : "Waiting for design…"}
           </div>
@@ -255,3 +255,4 @@ const GeneratedUICard = memo(function GeneratedUICard({
     </div>
   );
 });
+

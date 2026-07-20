@@ -1,6 +1,6 @@
-import { TextShape } from "@/redux/slice/shapes";
+import { TextShape } from "@/redux/slices/shapes";
 import { useDispatch } from "react-redux";
-import { updateShape, removeShape } from "@/redux/slice/shapes";
+import { updateShape, removeShape } from "@/redux/slices/shapes";
 import { useState, useRef, useEffect } from "react";
 
 export const Text = ({ shape }: { shape: TextShape }) => {

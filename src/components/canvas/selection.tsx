@@ -1,4 +1,4 @@
-import { Shape } from '@/redux/slice/shapes'
+import { Shape } from '@/redux/slices/shapes'
 
 interface SelectionOverlayProps {
   shape: Shape

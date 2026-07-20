@@ -2,7 +2,7 @@
 
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { setTool } from "@/redux/slices/shapes";
-import { ToolType } from "@/types/shapes";
+import { Tool } from "@/redux/slices/shapes";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -25,16 +25,16 @@ import {
 import { cn } from "@/lib/utils";
 
 const TOOLS: {
-  id: ToolType;
+  id: Tool;
   icon: React.ElementType;
   label: string;
   shortcut: string;
 }[] = [
   { id: "select", icon: MousePointer2, label: "Select", shortcut: "V" },
   { id: "frame", icon: Frame, label: "Frame", shortcut: "F" },
-  { id: "rectangle", icon: Square, label: "Rectangle", shortcut: "R" },
+  { id: "rect", icon: Square, label: "rect", shortcut: "R" },
   { id: "ellipse", icon: Circle, label: "Ellipse", shortcut: "O" },
-  { id: "pencil", icon: Pencil, label: "Pencil", shortcut: "P" },
+  { id: "freedraw", icon: Pencil, label: "freedraw", shortcut: "P" },
   { id: "line", icon: Minus, label: "Line", shortcut: "L" },
   { id: "arrow", icon: MoveUpRight, label: "Arrow", shortcut: "A" },
   { id: "text", icon: Type, label: "Text", shortcut: "T" },
@@ -73,3 +73,4 @@ export function Toolbar() {
     </TooltipProvider>
   );
 }
+

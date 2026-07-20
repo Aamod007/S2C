@@ -1,4 +1,4 @@
-import { EllipseShape } from "@/redux/slice/shapes";
+import { EllipseShape } from "@/redux/slices/shapes";
 
 export const Elipse = ({ shape }: { shape: EllipseShape }) => (
   <div

@@ -1,4 +1,4 @@
-import { ArrowShape } from "@/redux/slice/shapes";
+import { ArrowShape } from "@/redux/slices/shapes";
 
 // Calculate arrow direction and create arrow head points
 const calculateArrowHead = (

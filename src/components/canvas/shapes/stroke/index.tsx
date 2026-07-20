@@ -1,5 +1,5 @@
 import { polylineBox } from "@/lib/utils";
-import { FreeDrawShape } from "@/redux/slice/shapes";
+import { FreeDrawShape } from "@/redux/slices/shapes";
 
 export const Stroke = ({ shape }: { shape: FreeDrawShape }) => {
   const { points, strokeWidth, stroke, fill } = shape;

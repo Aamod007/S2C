@@ -1,4 +1,4 @@
-import { FrameShape, Shape } from "@/types/shapes";
+import { FrameShape, Shape } from "@/redux/slices/shapes";
 import { getShapeBounds } from "@/lib/canvas-hit-test";
 
 /**
@@ -22,13 +22,13 @@ export function getShapesInsideFrame(
 ): Shape[] {
   return allShapes.filter((s) => {
     if (s.id === frame.id) return false;
-    if (s.type === "frame" || s.type === "generated-ui") return false;
+    if (s.type === "frame" || s.type === "generatedui") return false;
     const b = getShapeBounds(s);
     return (
-      b.x < frame.x + frame.width &&
-      b.x + b.width > frame.x &&
-      b.y < frame.y + frame.height &&
-      b.y + b.height > frame.y
+      b.x < frame.x + frame.w &&
+      b.x + b.w > frame.x &&
+      b.y < frame.y + frame.h &&
+      b.y + b.h > frame.y
     );
   });
 }
@@ -49,18 +49,18 @@ export function renderShapeOnCanvas(
   ctx.fillStyle = s.fill || "transparent";
   ctx.lineWidth = s.strokeWidth || 2;
 
-  if (s.type === "rectangle" || s.type === "frame") {
+  if (s.type === "rect" || s.type === "frame") {
     ctx.beginPath();
-    ctx.rect(s.x, s.y, s.width, s.height);
+    ctx.rect(s.x, s.y, s.w, s.h);
     if (s.fill && s.fill !== "transparent") ctx.fill();
     ctx.stroke();
   } else if (s.type === "ellipse") {
     ctx.beginPath();
     ctx.ellipse(
-      s.x + s.width / 2,
-      s.y + s.height / 2,
-      s.width / 2,
-      s.height / 2,
+      s.x + s.w / 2,
+      s.y + s.h / 2,
+      s.w / 2,
+      s.h / 2,
       0,
       0,
       2 * Math.PI
@@ -89,7 +89,7 @@ export function renderShapeOnCanvas(
       );
       ctx.stroke();
     }
-  } else if (s.type === "free-draw") {
+  } else if (s.type === "freedraw") {
     if (s.points.length > 0) {
       ctx.beginPath();
       ctx.lineCap = "round";
@@ -120,19 +120,19 @@ export async function generateFrameSnapshot(
   frame: FrameShape,
   allShapes: Shape[]
 ): Promise<Blob> {
-  if (frame.width <= 0 || frame.height <= 0) {
+  if (frame.w <= 0 || frame.h <= 0) {
     throw new Error("Frame has no area to export");
   }
 
   const shapes = getShapesInsideFrame(frame, allShapes);
 
   // 2x export, shrunk if the frame's longest edge would exceed the pixel cap.
-  const longestEdge = Math.max(frame.width, frame.height);
+  const longestEdge = Math.max(frame.w, frame.h);
   const scale = Math.min(EXPORT_SCALE, MAX_EXPORT_PX / longestEdge);
 
   const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(frame.width * scale));
-  canvas.height = Math.max(1, Math.round(frame.height * scale));
+  canvas.width = Math.max(1, Math.round(frame.w * scale));
+  canvas.height = Math.max(1, Math.round(frame.h * scale));
 
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not acquire 2D context for frame export");
@@ -143,9 +143,9 @@ export async function generateFrameSnapshot(
 
   // Black background + clip so out-of-frame shape parts are cropped.
   ctx.fillStyle = "#000000";
-  ctx.fillRect(frame.x, frame.y, frame.width, frame.height);
+  ctx.fillRect(frame.x, frame.y, frame.w, frame.h);
   ctx.beginPath();
-  ctx.rect(frame.x, frame.y, frame.width, frame.height);
+  ctx.rect(frame.x, frame.y, frame.w, frame.h);
   ctx.clip();
 
   for (const shape of shapes) {
@@ -158,3 +158,4 @@ export async function generateFrameSnapshot(
   if (!blob) throw new Error("Frame snapshot export failed (toBlob was null)");
   return blob;
 }
+

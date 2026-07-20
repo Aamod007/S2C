@@ -1,4 +1,4 @@
-import { LineShape } from "@/redux/slice/shapes";
+import { LineShape } from "@/redux/slices/shapes";
 
 export const Line = ({ shape }: { shape: LineShape }) => {
   const { startX, startY, endX, endY } = shape;
