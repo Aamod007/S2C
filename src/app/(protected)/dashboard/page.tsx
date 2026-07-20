@@ -1,26 +1,41 @@
-"use client";
-
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { redirect } from "next/navigation";
+import { fetchMutation, fetchQuery } from "convex/nextjs";
+import { api } from "@convex/_generated/api";
+import { getConvexToken } from "@/lib/preload";
 import { generateUserSlug } from "@/lib/slugify";
-import { Loader2 } from "lucide-react";
 
-export default function DashboardRootPage() {
-  const router = useRouter();
-  const user = useQuery(api.users.currentUser);
+/**
+ * Dashboard routing gate (spec §4): resolves the user and checks subscription
+ * entitlement SERVER-side, then redirects to the billing page (no
+ * entitlement) or the session dashboard. No client-side gap to bypass.
+ */
+export default async function DashboardRootPage() {
+  const token = await getConvexToken();
+  // Middleware already forces auth on /dashboard — a missing token here
+  // means the Clerk "convex" JWT template isn't configured. Fail loudly
+  // rather than redirect-looping.
+  if (!token) {
+    throw new Error(
+      'Could not mint a Convex token — is the Clerk "convex" JWT template configured?'
+    );
+  }
 
-  useEffect(() => {
-    if (user) {
-      const session = generateUserSlug(user.name, user.email);
-      router.replace(`/dashboard/${session}`);
+  let user = await fetchQuery(api.users.currentUser, {}, { token });
+  if (!user) {
+    // First request of a brand-new session — the client-side AuthSync
+    // mutation may not have run yet. Sync the users row server-side.
+    try {
+      await fetchMutation(api.users.storeUser, {}, { token });
+      user = await fetchQuery(api.users.currentUser, {}, { token });
+    } catch (error) {
+      console.error("[dashboard] storeUser sync failed:", error);
     }
-  }, [user, router]);
+  }
 
-  return (
-    <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-    </div>
-  );
+  const entitled = user
+    ? await fetchQuery(api.subscriptions.isEntitled, {}, { token })
+    : false;
+
+  const slug = generateUserSlug(user?.name, user?.email);
+  redirect(entitled ? `/dashboard/${slug}` : `/dashboard/billing/${slug}`);
 }
