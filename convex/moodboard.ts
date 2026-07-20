@@ -55,6 +55,14 @@ export const removeImage = mutation({
       throw new Error("Project not found or unauthorized");
     }
 
+    const currentImages = project.mood_board_images ?? [];
+    // Storage ids are deployment-global — only delete files this project's
+    // image array actually references, otherwise any project owner could
+    // delete arbitrary files (including other users') by id.
+    if (!currentImages.includes(args.storageId)) {
+      throw new Error("Image does not belong to this project");
+    }
+
     // Delete from storage
     try {
       await ctx.storage.delete(args.storageId as any);
@@ -62,7 +70,6 @@ export const removeImage = mutation({
       // Storage ID may already be deleted — continue
     }
 
-    const currentImages = project.mood_board_images ?? [];
     await ctx.db.patch(args.projectId, {
       mood_board_images: currentImages.filter((id) => id !== args.storageId),
       last_modified: Date.now(),

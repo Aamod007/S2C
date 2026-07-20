@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { getAuthUserId } from "./auth";
+import { requireInternalSecret } from "./internal_secret";
 import { v } from "convex/values";
 
 export const getByUser = query({
@@ -52,13 +53,13 @@ export const getCreditBalance = query({
 
 // ── Webhook / background-job entry points ────────────────────
 //
-// ⚠️ SECURITY NOTE: the three functions below are called from server-side
-// contexts with NO user identity (Inngest functions, Polar webhooks), so they
-// take explicit args instead of resolving the user via ctx.auth. As public
-// Convex functions they are callable by anyone who knows the deployment URL.
-// They validate args strictly, but they should be converted to
-// `internalMutation` + a Convex action (or an HTTP action with a shared
-// secret) before production. Tracked as a DECISIONS.md item.
+// The functions below are called from server-side contexts with NO user
+// identity (Inngest functions, Polar webhooks), so they take explicit args
+// instead of resolving the user via ctx.auth. Because public Convex
+// functions are callable by anyone who knows the deployment URL, every one
+// of them is gated by `requireInternalSecret` — the caller must present the
+// INTERNAL_FUNCTION_SECRET shared between the Next.js server env and the
+// Convex deployment env. The gate fails closed if the secret is unset.
 
 /**
  * Look up a users-table id by email. Email is normalized (trim + lowercase)
@@ -66,8 +67,9 @@ export const getCreditBalance = query({
  * has no `metadata.userId`.
  */
 export const getUserIdByEmail = query({
-  args: { email: v.string() },
+  args: { email: v.string(), internalSecret: v.string() },
   handler: async (ctx, args) => {
+    requireInternalSecret(args.internalSecret);
     const normalized = args.email.trim().toLowerCase();
     if (!normalized) return null;
 
@@ -100,6 +102,7 @@ export const getUserIdByEmail = query({
  */
 export const upsertFromWebhook = mutation({
   args: {
+    internalSecret: v.string(),
     polarSubscriptionId: v.string(),
     polarCustomerId: v.optional(v.string()),
     userId: v.id("users"),
@@ -111,6 +114,7 @@ export const upsertFromWebhook = mutation({
     trialEndsAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    requireInternalSecret(args.internalSecret);
     if (!args.polarSubscriptionId.trim()) {
       throw new Error("polarSubscriptionId is required");
     }
@@ -177,23 +181,28 @@ export const upsertFromWebhook = mutation({
  */
 export const grantCredits = mutation({
   args: {
+    internalSecret: v.string(),
     userId: v.id("users"),
     subscriptionId: v.string(), // polar_subscription_id
     amount: v.number(),
     idempotencyKey: v.string(),
   },
   handler: async (ctx, args) => {
+    requireInternalSecret(args.internalSecret);
     if (args.amount <= 0) throw new Error("Amount must be positive");
     if (!args.idempotencyKey.trim()) {
       throw new Error("idempotencyKey is required");
     }
 
-    // Idempotency — skip if this grant was already applied.
+    // Idempotency — skip if this grant was already applied. Scoped to the
+    // user and to grant-type rows so a key collision with another user's
+    // ledger (or a consumption row) can never suppress a legitimate grant.
     const existing = await ctx.db
       .query("credits_ledger")
-      .withIndex("by_idempotency_key", (q) =>
-        q.eq("idempotency_key", args.idempotencyKey)
+      .withIndex("by_user_and_idempotency_key", (q) =>
+        q.eq("user_id", args.userId).eq("idempotency_key", args.idempotencyKey)
       )
+      .filter((q) => q.eq(q.field("type"), "grant"))
       .first();
     if (existing) return { granted: false, reason: "duplicate" };
 
@@ -230,11 +239,12 @@ export const grantCredits = mutation({
 
 /**
  * Read a subscription by its Polar id (no user ctx) — used by the Inngest
- * pre-expiry recheck step. Same security caveat as above.
+ * pre-expiry recheck step. Secret-gated like the other webhook entry points.
  */
 export const getByPolarId = query({
-  args: { polarSubscriptionId: v.string() },
+  args: { polarSubscriptionId: v.string(), internalSecret: v.string() },
   handler: async (ctx, args) => {
+    requireInternalSecret(args.internalSecret);
     return await ctx.db
       .query("subscriptions")
       .withIndex("by_polar_subscription_id", (q) =>
@@ -256,15 +266,19 @@ export const consumeCredits = mutation({
 
     if (args.amount <= 0) throw new Error("Amount must be positive");
 
-    // Check idempotency — skip if already processed
+    // Check idempotency — skip if already processed. Scoped to the caller
+    // and to consumption-type rows: a global key lookup would let a key
+    // collision with another user's ledger (or a grant row) silently skip
+    // a legitimate charge.
     const existing = await ctx.db
       .query("credits_ledger")
-      .withIndex("by_idempotency_key", (q) =>
-        q.eq("idempotency_key", args.idempotency_key)
+      .withIndex("by_user_and_idempotency_key", (q) =>
+        q.eq("user_id", userId).eq("idempotency_key", args.idempotency_key)
       )
+      .filter((q) => q.eq(q.field("type"), "consumption"))
       .first();
 
-    if (existing) return; // Already processed
+    if (existing) return { consumed: false, reason: "duplicate" as const };
 
     const subscription = await ctx.db
       .query("subscriptions")
@@ -297,5 +311,7 @@ export const consumeCredits = mutation({
       idempotency_key: args.idempotency_key,
       created_at: Date.now(),
     });
+
+    return { consumed: true as const };
   },
 });

@@ -47,7 +47,8 @@ export default defineSchema({
     created_at: v.number(),
   })
     .index("by_user", ["user_id"])
-    .index("by_idempotency_key", ["idempotency_key"]),
+    .index("by_idempotency_key", ["idempotency_key"])
+    .index("by_user_and_idempotency_key", ["user_id", "idempotency_key"]),
 
   subscriptions: defineTable({
     user_id: v.id("users"),
