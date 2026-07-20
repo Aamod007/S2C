@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { removeShape, removeShapes, clearShapes } from "@/redux/slices/shapes";
 
 interface ChatMessage {
   id: string;
@@ -119,6 +120,21 @@ const chatSlice = createSlice({
     removeChat: (state, action: PayloadAction<string>) => {
       delete state.sessions[action.payload];
     },
+  },
+  // Chat sessions are keyed by generated-ui shape id — when a shape is
+  // removed by ANY path (overlay button, eraser, Delete key, project load),
+  // its session must go too, or it leaks for the rest of the session.
+  extraReducers: (builder) => {
+    builder
+      .addCase(removeShape, (state, action) => {
+        delete state.sessions[action.payload];
+      })
+      .addCase(removeShapes, (state, action) => {
+        for (const id of action.payload) delete state.sessions[id];
+      })
+      .addCase(clearShapes, (state) => {
+        state.sessions = {};
+      });
   },
 });
 

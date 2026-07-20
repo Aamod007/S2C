@@ -154,17 +154,19 @@ export async function consumeCreditsAfterSuccess(options: {
   }
 }
 
-/** Stable per-request idempotency key: honors a client-sent requestId, else random. */
+/**
+ * Per-request idempotency key. Always server-generated: honoring a
+ * client-sent requestId would let a caller replay one key and get unlimited
+ * generations for a single credit. The key still protects the consumeCredits
+ * mutation against transport-level retries of the same call. The client
+ * requestId (if any) is ignored.
+ */
 export function buildIdempotencyKey(
   prefix: string,
   projectId: string,
-  requestId: unknown
+  _requestId?: unknown
 ): string {
-  const id =
-    typeof requestId === "string" && requestId.length > 0 && requestId.length <= 128
-      ? requestId
-      : crypto.randomUUID();
-  return `${prefix}:${projectId}:${id}`;
+  return `${prefix}:${projectId}:${crypto.randomUUID()}`;
 }
 
 // ── Streaming ────────────────────────────────────────────────
