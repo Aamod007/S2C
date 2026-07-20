@@ -13,6 +13,7 @@
     "@base-ui/react": "^1.6.0",
     "@clerk/nextjs": "^7.5.20",
     "@clerk/ui": "^1.25.5",
+    "@excalidraw/excalidraw": "^0.18.1",
     "@hookform/resolvers": "^5.4.0",
     "@inngest/realtime": "^0.4.6",
     "@polar-sh/sdk": "^0.48.1",
