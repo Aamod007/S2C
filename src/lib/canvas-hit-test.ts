@@ -14,6 +14,9 @@ export const FREE_DRAW_HIT_THRESHOLD = 5;
 export const LINE_HIT_THRESHOLD = 8;
 export const HANDLE_SIZE = 8;
 export const HANDLE_HIT_SLOP = 4;
+// World-space padding around a text shape's approximate bounds (text bounds
+// are computed in world units, so its padding is too — unlike the thresholds
+// above it is NOT divided by scale).
 export const TEXT_HIT_PADDING = 4;
 
 const DEFAULT_FONT_SIZE = 16;
@@ -269,7 +272,35 @@ export function resizeShape(
         endY: newBounds.y + tEndY * newBounds.height,
       } as Partial<Shape>;
     }
-    // rect/ellipse/frame/text/generated-ui: opposite corner anchors,
+    case "text": {
+      // Text has no intrinsic box — its bounds derive from fontSize, so a
+      // resize scales fontSize. Writing raw bounds would (a) shift the shape
+      // by the hit padding baked into getShapeBounds and (b) be ignored by
+      // the renderer, snapping the selection box back on release.
+      const ratio =
+        initialBounds.height === 0
+          ? 1
+          : newBounds.height / initialBounds.height;
+      const fontSize = Math.max(
+        4,
+        (baseline.fontSize ?? DEFAULT_FONT_SIZE) * ratio
+      );
+      return {
+        // Un-pad: shape.x/y is the text origin, bounds are padded outward.
+        x: newBounds.x + TEXT_HIT_PADDING,
+        y: newBounds.y + TEXT_HIT_PADDING,
+        fontSize,
+      } as Partial<Shape>;
+    }
+    case "generated-ui":
+      // Height is owned by the DOM card's ResizeObserver (content-driven);
+      // dispatching it here would fight the observer mid-drag.
+      return {
+        x: newBounds.x,
+        y: newBounds.y,
+        width: newBounds.width,
+      };
+    // rect/ellipse/frame: opposite corner anchors,
     // bounds already normalized by boundsFromAnchor.
     default:
       return {

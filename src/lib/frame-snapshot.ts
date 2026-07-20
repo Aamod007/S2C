@@ -7,8 +7,8 @@ import { getShapeBounds } from "@/lib/canvas-hit-test";
  * frame bounds, and return a PNG Blob for the /api/generate FormData.
  */
 
-// Output sizing: aim for 2x (or dpr, whichever is larger, capped at 2x)
-// but never exceed MAX_EXPORT_PX on the longest edge.
+// Output sizing: flat 2x, shrunk so the longest edge never exceeds
+// MAX_EXPORT_PX (dpr is intentionally not involved — see DECISIONS.md).
 const EXPORT_SCALE = 2;
 const MAX_EXPORT_PX = 2000;
 

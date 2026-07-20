@@ -36,6 +36,17 @@ export function TextEditOverlay({ editingTextId, onDone }: TextEditOverlayProps)
     inputRef.current?.select();
   }, []);
 
+  // If the shape disappears externally (autosave re-hydration, undo…) while
+  // the overlay is open, release editing state — otherwise editingTextId
+  // stays set and permanently blocks every canvas keyboard shortcut.
+  const shapeGone = !shape || shape.type !== "text";
+  useEffect(() => {
+    if (shapeGone && !doneRef.current) {
+      doneRef.current = true;
+      onDone();
+    }
+  }, [shapeGone, onDone]);
+
   if (!shape || shape.type !== "text") return null;
 
   const screen = worldToScreen(shape.x, shape.y, scale, translate);
@@ -62,6 +73,11 @@ export function TextEditOverlay({ editingTextId, onDone }: TextEditOverlayProps)
     onDone();
   };
 
+  // Default dark-era inks map to the theme's foreground color (matches the
+  // canvas renderer's themedInk mapping); custom colors pass through.
+  const isDefaultInk =
+    !shape.color || ["#ffffff", "#fff", "#e4e4e7"].includes(shape.color.toLowerCase());
+
   return (
     <input
       ref={inputRef}
@@ -73,7 +89,7 @@ export function TextEditOverlay({ editingTextId, onDone }: TextEditOverlayProps)
         if (e.key === "Enter") commit();
         else if (e.key === "Escape") cancel();
       }}
-      className="absolute z-20 min-w-[4ch] border-none bg-transparent p-0 outline-none ring-1 ring-primary/60"
+      className="absolute z-20 min-w-[4ch] border-none bg-transparent p-0 text-foreground outline-none ring-1 ring-primary/60"
       style={{
         left: screen.x,
         top: screen.y,
@@ -81,7 +97,7 @@ export function TextEditOverlay({ editingTextId, onDone }: TextEditOverlayProps)
         fontFamily: shape.fontFamily ?? "sans-serif",
         fontWeight: shape.fontWeight ?? "normal",
         fontStyle: shape.fontStyle ?? "normal",
-        color: shape.color ?? "#e4e4e7",
+        ...(isDefaultInk ? {} : { color: shape.color }),
         lineHeight: 1,
         width: `${Math.max(value.length + 2, 4)}ch`,
       }}

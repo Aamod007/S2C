@@ -7,14 +7,18 @@ import {
   addFreeDrawShape,
   addLine,
   addRectangle,
+  addShapes,
   addText,
   clearSelection,
+  pushHistory,
+  redo,
   removeShape,
   removeShapes,
   selectShape,
   setTool,
   shapesSelectors,
   toggleSelectShape,
+  undo,
   updateShape,
   updateShapes,
 } from "@/redux/slices/shapes";
@@ -118,6 +122,8 @@ export function useCanvasDrawing(
   const resizeDataRef = useRef<ResizeData | null>(null);
   const erasedShapesRef = useRef<Set<string>>(new Set());
   const animationFrameRef = useRef<number>(0);
+  // Copied shapes (deep clones) for Ctrl+C/V/D — module-local, not OS clipboard.
+  const clipboardRef = useRef<Shape[]>([]);
 
   // Text editing is rare + needs a DOM overlay, so it's real React state.
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
@@ -265,6 +271,7 @@ export function useCanvasDrawing(
             return;
           }
           moveStartedRef.current = true;
+          dispatch(pushHistory()); // one undo step per move gesture
         }
         const dx = world.x - start.x;
         const dy = world.y - start.y;
@@ -328,6 +335,9 @@ export function useCanvasDrawing(
 
     // ---- pointer handlers ----
     const handlePointerDown = (e: PointerEvent) => {
+      // No multi-touch support yet: a second finger mid-gesture would
+      // overwrite mode/start refs and corrupt the in-progress interaction.
+      if (!e.isPrimary) return;
       const local = getLocalPoint(e);
       const world = getWorldPoint(local);
       const currentTool = toolRef.current;
@@ -372,6 +382,7 @@ export function useCanvasDrawing(
                 initialBounds: bounds,
                 baseline: JSON.parse(JSON.stringify(selected)) as Shape,
               };
+              dispatch(pushHistory()); // one undo step per resize gesture
               canvas.setPointerCapture(e.pointerId);
               return;
             }
@@ -413,6 +424,11 @@ export function useCanvasDrawing(
       if (currentTool === "text") {
         // Single click places a text shape, switches to select, and opens
         // the edit overlay immediately (spec 4f).
+        // preventDefault stops the canvas (tabIndex=0) from taking focus on
+        // this pointerdown/click — otherwise it immediately blurs the just-
+        // mounted edit input, committing empty text and removing the shape
+        // (the "text tool does nothing" bug).
+        e.preventDefault();
         const id = uuidv4();
         dispatch(
           addText({
@@ -507,6 +523,7 @@ export function useCanvasDrawing(
     };
 
     const handlePointerMove = (e: PointerEvent) => {
+      if (!e.isPrimary) return;
       if (modeRef.current === "idle") return;
       pendingClientRef.current = getLocalPoint(e);
       scheduleFrame();
@@ -561,6 +578,7 @@ export function useCanvasDrawing(
     };
 
     const endInteraction = (e: PointerEvent) => {
+      if (!e.isPrimary) return;
       if (modeRef.current === "idle") return;
       if (canvas.hasPointerCapture(e.pointerId)) {
         canvas.releasePointerCapture(e.pointerId);
@@ -632,10 +650,102 @@ export function useCanvasDrawing(
       e: "eraser",
     };
 
+    // Deep-clone shapes with fresh ids, offset so pastes don't stack exactly.
+    const PASTE_OFFSET = 16;
+    const cloneShapes = (sources: Shape[]): Shape[] =>
+      sources.map((s) => {
+        const clone = JSON.parse(JSON.stringify(s)) as Shape;
+        clone.id = uuidv4();
+        clone.x += PASTE_OFFSET;
+        clone.y += PASTE_OFFSET;
+        if (clone.type === "free-draw") {
+          clone.points = clone.points.map((p) => ({
+            x: p.x + PASTE_OFFSET,
+            y: p.y + PASTE_OFFSET,
+          }));
+        } else if (clone.type === "line" || clone.type === "arrow") {
+          clone.startX += PASTE_OFFSET;
+          clone.startY += PASTE_OFFSET;
+          clone.endX += PASTE_OFFSET;
+          clone.endY += PASTE_OFFSET;
+        }
+        return clone;
+      });
+
+    const copySelection = () => {
+      const selected = shapesRef.current.filter((s) =>
+        selectedIdsRef.current.includes(s.id)
+      );
+      if (selected.length > 0) {
+        clipboardRef.current = JSON.parse(JSON.stringify(selected));
+      }
+    };
+
+    const pasteShapes = (sources: Shape[]) => {
+      if (sources.length === 0) return;
+      const clones = cloneShapes(sources);
+      dispatch(addShapes(clones));
+      // Select the fresh clones so a follow-up drag moves them.
+      dispatch(clearSelection());
+      clones.forEach((c, i) =>
+        dispatch(i === 0 ? selectShape(c.id) : toggleSelectShape(c.id))
+      );
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Shift") shiftPressedRef.current = true;
       // While editing text (or typing anywhere), canvas shortcuts must not fire.
       if (isTypingTarget(e.target) || editingTextIdRef.current) return;
+
+      // Undo/redo/copy/paste/duplicate/select-all (Excalidraw-style).
+      if (e.ctrlKey || e.metaKey) {
+        const key = e.key.toLowerCase();
+        if (key === "z") {
+          e.preventDefault();
+          dispatch(e.shiftKey ? redo() : undo());
+          return;
+        }
+        if (key === "y") {
+          e.preventDefault();
+          dispatch(redo());
+          return;
+        }
+        if (key === "c") {
+          copySelection();
+          return; // don't preventDefault — harmless, keeps devtools copy working
+        }
+        if (key === "x") {
+          if (selectedIdsRef.current.length > 0) {
+            e.preventDefault();
+            copySelection();
+            dispatch(removeShapes(selectedIdsRef.current));
+          }
+          return;
+        }
+        if (key === "v") {
+          e.preventDefault();
+          pasteShapes(clipboardRef.current);
+          return;
+        }
+        if (key === "d") {
+          e.preventDefault();
+          pasteShapes(
+            shapesRef.current.filter((s) =>
+              selectedIdsRef.current.includes(s.id)
+            )
+          );
+          return;
+        }
+        if (key === "a") {
+          e.preventDefault();
+          dispatch(clearSelection());
+          shapesRef.current.forEach((s, i) =>
+            dispatch(i === 0 ? selectShape(s.id) : toggleSelectShape(s.id))
+          );
+          return;
+        }
+        return; // other Ctrl/Cmd combos: leave to the browser
+      }
 
       if (e.code === "Space") {
         e.preventDefault();
@@ -656,7 +766,41 @@ export function useCanvasDrawing(
         return;
       }
 
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // Arrow keys nudge the selection (Shift = 10px steps).
+      if (
+        (e.key === "ArrowUp" ||
+          e.key === "ArrowDown" ||
+          e.key === "ArrowLeft" ||
+          e.key === "ArrowRight") &&
+        selectedIdsRef.current.length > 0
+      ) {
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+        const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+        dispatch(pushHistory());
+        const updates = shapesRef.current
+          .filter((s) => selectedIdsRef.current.includes(s.id))
+          .map((s) => {
+            const changes: Partial<Shape> = { x: s.x + dx, y: s.y + dy };
+            if (s.type === "free-draw") {
+              (changes as Partial<Shape> & { points: { x: number; y: number }[] }).points =
+                s.points.map((p) => ({ x: p.x + dx, y: p.y + dy }));
+            } else if (s.type === "line" || s.type === "arrow") {
+              Object.assign(changes, {
+                startX: s.startX + dx,
+                startY: s.startY + dy,
+                endX: s.endX + dx,
+                endY: s.endY + dy,
+              });
+            }
+            return { id: s.id, changes };
+          });
+        dispatch(updateShapes(updates));
+        return;
+      }
+
+      if (e.altKey) return;
       const nextTool = TOOL_SHORTCUTS[e.key.toLowerCase()];
       if (nextTool && modeRef.current === "idle") {
         dispatch(setTool(nextTool));
@@ -671,6 +815,16 @@ export function useCanvasDrawing(
       }
     };
 
+    // Focus loss (Alt+Tab, dev tools…) swallows keyup — clear held-key state
+    // so the canvas isn't stuck in pan/snap mode when focus returns.
+    const handleWindowBlur = () => {
+      if (spacePressedRef.current || shiftPressedRef.current) {
+        spacePressedRef.current = false;
+        shiftPressedRef.current = false;
+        forceRender();
+      }
+    };
+
     canvas.addEventListener("pointerdown", handlePointerDown);
     canvas.addEventListener("pointermove", handlePointerMove);
     canvas.addEventListener("pointerup", endInteraction);
@@ -678,6 +832,7 @@ export function useCanvasDrawing(
     canvas.addEventListener("dblclick", handleDoubleClick);
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleWindowBlur);
 
     return () => {
       canvas.removeEventListener("pointerdown", handlePointerDown);
@@ -687,8 +842,12 @@ export function useCanvasDrawing(
       canvas.removeEventListener("dblclick", handleDoubleClick);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleWindowBlur);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        // Reset the scheduling guard too — a stale id would permanently
+        // block scheduleFrame if this effect ever re-runs (HMR).
+        animationFrameRef.current = 0;
       }
     };
     // Handlers read all fast-changing state through refs — attach once.

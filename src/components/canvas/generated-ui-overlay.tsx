@@ -95,6 +95,9 @@ const GeneratedUICard = memo(function GeneratedUICard({
   const cardRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const lastHeightRef = useRef(shape.height);
+  // Keep the epsilon baseline in sync with external height changes (e.g.
+  // project re-hydration) so the observer compares against reality.
+  lastHeightRef.current = shape.height;
 
   const html = typeof shape.uiSpecData === "string" ? shape.uiSpecData : "";
   const isStreaming = shape.status === "streaming";

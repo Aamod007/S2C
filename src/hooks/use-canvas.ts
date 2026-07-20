@@ -80,7 +80,11 @@ export function useInfinityCanvas(canvasRef: RefObject<HTMLCanvasElement | null>
       canvas.removeEventListener("wheel", handleWheel);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = 0;
       }
+      // Reset the scheduling guard — a stale `true` would permanently block
+      // wheel processing if this effect ever re-runs (HMR, ref change).
+      isPanningRef.current = false;
     };
   }, [canvasRef, dispatch]);
 }
