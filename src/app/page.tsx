@@ -4,7 +4,7 @@ import { ArrowRight, LayoutDashboard, LogIn, UserPlus } from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 px-4 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 text-center">
       {/* Background gradient blob */}
       <div className="absolute inset-0 z-0 overflow-hidden">
         <div className="absolute -top-40 left-1/2 h-96 w-[600px] -translate-x-1/2 rounded-full bg-primary/20 opacity-50 blur-[100px]" />
@@ -12,10 +12,10 @@ export default function Home() {
 
       <div className="relative z-10 flex flex-col items-center space-y-8 max-w-3xl">
         <div className="space-y-4">
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl text-white">
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl text-foreground">
             Sketch to Code <span className="text-primary">(S2C)</span>
           </h1>
-          <p className="mx-auto max-w-2xl text-lg text-zinc-400 sm:text-xl">
+          <p className="mx-auto max-w-2xl text-lg text-muted-foreground sm:text-xl">
             Design beautiful wireframes on an infinite canvas and let AI generate 
             production-ready Next.js & Tailwind code instantly.
           </p>
@@ -37,7 +37,7 @@ export default function Home() {
             </Link>
           </Button>
 
-          <Button asChild variant="secondary" size="lg" className="w-full sm:col-span-2 mt-4 border border-white/10 bg-white/5 hover:bg-white/10">
+          <Button asChild variant="secondary" size="lg" className="w-full sm:col-span-2 mt-4 border border-border bg-muted/50 hover:bg-muted">
             <Link href="/dashboard">
               <LayoutDashboard className="mr-2 h-4 w-4 text-primary" />
               Enter Dashboard

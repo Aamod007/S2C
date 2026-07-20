@@ -6,16 +6,21 @@ import { UserButton } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { generateUserSlug } from "@/lib/slugify";
+import { useAppSelector } from "@/redux/hooks";
 import { Button } from "@/components/ui/button";
 import { Plus, CreditCard } from "lucide-react";
 import { useProject } from "@/hooks/use-project";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Navbar() {
   const router = useRouter();
-  const user = useQuery(api.users.currentUser);
+  // Server-preloaded profile (root layout preloadedState, spec §5) renders
+  // immediately; the live Convex query takes over once it resolves.
+  const preloadedProfile = useAppSelector((state) => state.profile.user);
+  const liveUser = useQuery(api.users.currentUser);
+  const user = liveUser ?? preloadedProfile;
   const credits = useQuery(api.subscriptions.getCreditBalance) ?? 0;
-  
-  // We'll build useProject next
+
   const { createProject, isCreating } = useProject();
 
   const handleCreateProject = async () => {
@@ -61,6 +66,7 @@ export function Navbar() {
             </Button>
           </div>
 
+          <ThemeToggle />
           <UserButton />
         </div>
       </div>

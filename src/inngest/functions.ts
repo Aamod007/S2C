@@ -3,6 +3,7 @@ import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { inngest } from "./client";
+import { STANDARD_PLAN_CREDITS } from "@/lib/billing";
 import {
   ENTITLED_STATUSES,
   GRANT_EVENT_TYPES,
@@ -13,11 +14,11 @@ import {
 } from "@/types/polar";
 
 /**
- * Credits granted per billing period on the standard plan (spec §8.2 grants
- * credits on subscription create/renew; the amount itself is not specified
- * in the spec, so it lives here as a single documented constant).
+ * Credits granted per billing period — re-exported from lib/billing so
+ * existing imports keep working; the constant itself lives with the other
+ * client-safe billing config.
  */
-export const STANDARD_PLAN_CREDITS = 100;
+export { STANDARD_PLAN_CREDITS } from "@/lib/billing";
 
 /** Small stable hash (djb2) for building compact idempotency keys. */
 function djb2(input: string): string {
@@ -26,6 +27,23 @@ function djb2(input: string): string {
     hash = ((hash << 5) + hash + input.charCodeAt(i)) >>> 0;
   }
   return hash.toString(36);
+}
+
+/**
+ * Shared secret presented to the secret-gated Convex functions these
+ * workflows call (they run with no user identity). Must match the
+ * INTERNAL_FUNCTION_SECRET set on the Convex deployment. Resolved lazily so
+ * a missing var fails the step (and surfaces in Inngest) rather than
+ * crashing module load.
+ */
+function internalSecret(): string {
+  const secret = process.env.INTERNAL_FUNCTION_SECRET;
+  if (!secret) {
+    throw new NonRetriableError(
+      "INTERNAL_FUNCTION_SECRET is not set in the server environment"
+    );
+  }
+  return secret;
 }
 
 /**
@@ -66,7 +84,10 @@ export const handlePolarEvent = inngest.createFunction(
       (await step.run("resolve-user-by-email", async () => {
         const email = extractCustomerEmail(subscription);
         if (!email) return null;
-        return await fetchQuery(api.subscriptions.getUserIdByEmail, { email });
+        return await fetchQuery(api.subscriptions.getUserIdByEmail, {
+          email,
+          internalSecret: internalSecret(),
+        });
       }))) as Id<"users"> | null;
 
     if (!userId) {
@@ -81,6 +102,7 @@ export const handlePolarEvent = inngest.createFunction(
     // 3. Upsert the subscription row (credit_balance preserved server-side).
     await step.run("upsert-subscription", async () => {
       return await fetchMutation(api.subscriptions.upsertFromWebhook, {
+        internalSecret: internalSecret(),
         polarSubscriptionId: subscription.id,
         polarCustomerId: subscription.customerId,
         userId,
@@ -114,6 +136,7 @@ export const handlePolarEvent = inngest.createFunction(
       )}`;
       await step.run("grant-credits", async () => {
         return await fetchMutation(api.subscriptions.grantCredits, {
+          internalSecret: internalSecret(),
           userId,
           subscriptionId: subscription.id,
           amount: STANDARD_PLAN_CREDITS,
@@ -141,6 +164,7 @@ export const handlePolarEvent = inngest.createFunction(
       const current = await step.run("recheck-entitlement", async () => {
         return await fetchQuery(api.subscriptions.getByPolarId, {
           polarSubscriptionId: subscription.id,
+          internalSecret: internalSecret(),
         });
       });
 
@@ -193,6 +217,7 @@ export const autosaveProjectWorkflow = inngest.createFunction(
 
     await step.run("update-sketches", async () => {
       return await fetchMutation(api.projects.updateSketchesFromWorkflow, {
+        internalSecret: internalSecret(),
         userId: userId as Id<"users">,
         projectId: projectId as Id<"projects">,
         sketches_data: sketchesData,
