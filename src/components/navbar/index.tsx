@@ -8,9 +8,8 @@ import { api } from "../../../convex/_generated/api";
 import { generateUserSlug } from "@/lib/slugify";
 import { useAppSelector } from "@/redux/hooks";
 import { Button } from "@/components/ui/button";
-import { Plus, CreditCard } from "lucide-react";
+import { Plus, HelpCircle, Hash, Palette, Loader2 } from "lucide-react";
 import { useProject } from "@/hooks/use-project";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Navbar() {
   const router = useRouter();
@@ -40,35 +39,56 @@ export function Navbar() {
   const session = generateUserSlug(user.name, user.email);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 max-w-screen-2xl items-center px-4">
-        <div className="mr-4 flex">
-          <Link href={`/dashboard/${session}`} className="mr-6 flex items-center space-x-2">
-            <span className="font-bold sm:inline-block">S2C</span>
-          </Link>
+    <header className="sticky top-0 z-50 w-full border-b border-neutral-900 bg-neutral-950">
+      <div className="flex h-16 w-full items-center justify-between px-6">
+        
+        {/* Left: Logo */}
+        <Link href={`/dashboard/${session}`} className="flex items-center">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full border-[2.5px] border-white">
+            <div className="h-2 w-2 rounded-full bg-white" />
+          </div>
+        </Link>
+        
+        {/* Center: Tabs */}
+        <div className="flex items-center space-x-1 rounded-full bg-neutral-900 p-1">
+          <button className="flex items-center space-x-2 rounded-full px-4 py-1.5 text-sm font-medium text-neutral-400 hover:text-neutral-200 transition-colors">
+            <Hash className="h-4 w-4" />
+            <span>Canvas</span>
+          </button>
+          <button className="flex items-center space-x-2 rounded-full px-4 py-1.5 text-sm font-medium text-neutral-400 hover:text-neutral-200 transition-colors">
+            <Palette className="h-4 w-4" />
+            <span>Style Guide</span>
+          </button>
         </div>
         
-        <div className="flex flex-1 items-center justify-end space-x-4">
-          <div className="flex items-center space-x-2">
-            <div className="flex items-center gap-2 rounded-full border border-border/50 bg-muted/50 px-3 py-1.5 text-sm font-medium">
-              <CreditCard className="h-4 w-4 text-primary" />
-              <span>{credits} credits</span>
-            </div>
-            
-            <Button 
-              size="sm" 
-              onClick={handleCreateProject} 
-              disabled={isCreating}
-              className="hidden sm:flex"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              New Project
-            </Button>
+        {/* Right: Actions & User */}
+        <div className="flex items-center space-x-4">
+          <span className="text-xs font-medium text-neutral-500">
+            {credits} credits
+          </span>
+          
+          <button className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-900 text-neutral-400 hover:text-neutral-200 transition-colors">
+            <HelpCircle className="h-4 w-4" />
+          </button>
+
+          <div className="flex h-8 w-8 items-center justify-center rounded-full overflow-hidden">
+            <UserButton appearance={{ elements: { avatarBox: "h-8 w-8" } }} />
           </div>
 
-          <ThemeToggle />
-          <UserButton />
+          <Button 
+            onClick={handleCreateProject} 
+            disabled={isCreating}
+            className="hidden sm:flex h-8 rounded-full bg-white px-4 text-sm font-medium text-black hover:bg-neutral-200"
+          >
+            {isCreating ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="mr-2 h-4 w-4 text-neutral-600" />
+            )}
+            New Project
+          </Button>
         </div>
+
       </div>
     </header>
   );
