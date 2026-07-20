@@ -1,68 +1,60 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useAppSelector } from "@/redux/hooks";
-import { shapesSelectors } from "@/redux/slices/shapes";
-import type { Shape } from "@/types/shapes";
-import type { ViewportState } from "@/redux/slices/viewport";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 
-const DEBOUNCE_MS = 1000;
+const DEBOUNCE_MS = 1500;
 const SAVED_RESET_MS = 2000;
 
-// Serialized payload persisted as sketches_data / viewport_data. Shapes are
-// stored as a plain Shape[] — exactly what loadProject (adapter setAll)
-// expects back on the next load.
-export interface AutosaveSnapshot {
-  sketchesData: Shape[];
-  viewportData: ViewportState;
-}
-
 /**
- * Autosave hook (spec §9). Watches shapes + viewport Redux state, debounces
- * ~1s after the last change, skips no-ops via JSON snapshot comparison, and
- * PATCHes /api/project with an AbortController cancelling in-flight saves.
+ * Autosave hook for the Excalidraw canvas.
  *
- * `enabled` gates saving until the initial project load has been dispatched;
- * call `markLoaded` with the just-loaded data so the baseline snapshot equals
- * what came from the server (we never save what we just loaded).
+ * Design constraint: Excalidraw fires onChange on every pointer move, so
+ * NOTHING in the notify path may call setState or produce a new render —
+ * otherwise the canvas re-renders, Excalidraw re-fires, and React hits
+ * "Maximum update depth exceeded". `notifyChange` is therefore a stable
+ * callback that only touches refs and a timer; the only setState calls are
+ * the at-most-once-per-save status transitions.
+ *
+ * Elements are read at save time from the getter CanvasContainer registers
+ * on window (`__excalidraw_elements_${projectId}`), never from React state.
  */
 export function useAutosave(projectId: string, enabled: boolean) {
   const [status, setStatus] = useState<AutosaveStatus>("idle");
-
-  const shapes = useAppSelector(shapesSelectors.selectAll);
-  const viewport = useAppSelector((state) => state.viewport);
-
-  // Memoized serialization — shapes/viewport references change every commit,
-  // but stringify only reruns when the references actually change (selectAll
-  // is memoized by the entity adapter, viewport is the slice object).
-  const serialized = useMemo(
-    () =>
-      JSON.stringify({
-        sketchesData: shapes,
-        viewportData: { scale: viewport.scale, translate: viewport.translate },
-      } satisfies AutosaveSnapshot),
-    [shapes, viewport]
-  );
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
 
   const lastSavedRef = useRef<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  // Latest serialized payload, readable from stable callbacks (retry).
-  const serializedRef = useRef(serialized);
-  serializedRef.current = serialized;
+  const lastStampRef = useRef(0);
 
-  // Initialize the baseline from just-loaded server data so the load itself
-  // doesn't count as a change worth saving.
-  const markLoaded = useCallback((snapshot: AutosaveSnapshot) => {
-    lastSavedRef.current = JSON.stringify(snapshot);
+  const nextSavedAt = useCallback(() => {
+    const stamp = Math.max(Date.now(), lastStampRef.current + 1);
+    lastStampRef.current = stamp;
+    return stamp;
   }, []);
 
+  const getSnapshot = useCallback((): string | null => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const getter = (window as any)[`__excalidraw_elements_${projectId}`] as
+      | (() => { elements: unknown; appState: unknown })
+      | undefined;
+    if (!getter) return null;
+    const { elements, appState } = getter();
+    return JSON.stringify({ sketchesData: elements, viewportData: appState });
+  }, [projectId]);
+
+  // Called once after hydration so the initial load doesn't count as a change.
+  const markLoaded = useCallback(() => {
+    lastSavedRef.current = getSnapshot();
+  }, [getSnapshot]);
+
   const performSave = useCallback(async () => {
-    const payload = serializedRef.current;
-    if (payload === lastSavedRef.current) return;
+    const payload = getSnapshot();
+    if (!payload || payload === lastSavedRef.current) return;
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -70,12 +62,16 @@ export function useAutosave(projectId: string, enabled: boolean) {
 
     setStatus("saving");
     try {
-      const { sketchesData, viewportData }: AutosaveSnapshot =
-        JSON.parse(payload);
+      const { sketchesData, viewportData } = JSON.parse(payload);
       const res = await fetch("/api/project", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, sketchesData, viewportData }),
+        body: JSON.stringify({
+          projectId,
+          sketchesData,
+          viewportData,
+          savedAt: nextSavedAt(),
+        }),
         signal: controller.signal,
       });
       if (!res.ok) throw new Error(`Autosave failed: ${res.status}`);
@@ -83,46 +79,58 @@ export function useAutosave(projectId: string, enabled: boolean) {
       lastSavedRef.current = payload;
       setStatus("saved");
       if (savedResetRef.current) clearTimeout(savedResetRef.current);
-      savedResetRef.current = setTimeout(() => {
-        // saved → idle after ~2s (only if nothing else started meanwhile)
-        setStatus((s) => (s === "saved" ? "idle" : s));
-      }, SAVED_RESET_MS);
+      savedResetRef.current = setTimeout(
+        () => setStatus((s) => (s === "saved" ? "idle" : s)),
+        SAVED_RESET_MS
+      );
     } catch (error) {
-      // An abort means a newer save superseded this one — not an error.
       if (controller.signal.aborted) return;
       console.error("Autosave error:", error);
       setStatus("error");
     }
-  }, [projectId]);
+  }, [getSnapshot, projectId, nextSavedAt]);
 
-  // Debounced watcher: any shapes/viewport change (re)arms a 1s timer.
-  useEffect(() => {
-    if (!enabled) return;
-    if (serialized === lastSavedRef.current) return;
-
+  // STABLE debounce trigger — refs and a timer only, no setState. Safe to
+  // call from Excalidraw's onChange at pointer-move frequency.
+  const performSaveRef = useRef(performSave);
+  performSaveRef.current = performSave;
+  const notifyChange = useCallback(() => {
+    if (!enabledRef.current) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      void performSave();
+      void performSaveRef.current();
     }, DEBOUNCE_MS);
+  }, []);
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [serialized, enabled, performSave]);
-
-  // Cleanup on unmount / project switch.
+  // Flush on unmount / project switch.
   useEffect(() => {
     return () => {
-      abortRef.current?.abort();
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (savedResetRef.current) clearTimeout(savedResetRef.current);
+      abortRef.current?.abort();
+      if (!enabledRef.current || lastSavedRef.current === null) return;
+      const payload = getSnapshot();
+      if (!payload || payload === lastSavedRef.current) return;
+      try {
+        const { sketchesData, viewportData } = JSON.parse(payload);
+        void fetch("/api/project", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectId,
+            sketchesData,
+            viewportData,
+            savedAt: Math.max(Date.now(), lastStampRef.current + 1),
+          }),
+          keepalive: true,
+        });
+      } catch {
+        // best-effort
+      }
     };
-  }, [projectId]);
+  }, [projectId, getSnapshot]);
 
-  // Manual retry for the error state (status indicator click).
-  const retry = useCallback(() => {
-    void performSave();
-  }, [performSave]);
+  const retry = useCallback(() => void performSaveRef.current(), []);
 
-  return { status, retry, markLoaded };
+  return { status, retry, markLoaded, notifyChange };
 }

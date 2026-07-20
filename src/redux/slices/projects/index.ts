@@ -64,6 +64,19 @@ const projectsSlice = createSlice({
       state.projects.unshift(action.payload);
       state.total += 1;
     },
+    // Insert-or-update a single project (e.g. mirrored from a Convex getById
+    // result in the workspace) without touching the rest of the list.
+    upsertProject: (state, action: PayloadAction<Project>) => {
+      const index = state.projects.findIndex(
+        (p) => p._id === action.payload._id
+      );
+      if (index === -1) {
+        state.projects.unshift(action.payload);
+        state.total += 1;
+      } else {
+        state.projects[index] = action.payload;
+      }
+    },
     updateProject: (
       state,
       action: PayloadAction<{ id: string; updates: Partial<Project> }>
@@ -79,10 +92,15 @@ const projectsSlice = createSlice({
       }
     },
     removeProject: (state, action: PayloadAction<string>) => {
-      state.projects = state.projects.filter(
-        (p) => p._id !== action.payload
+      const index = state.projects.findIndex(
+        (p) => p._id === action.payload
       );
-      state.total -= 1;
+      // Only decrement when the id was actually present — deletes of
+      // projects never loaded into Redux must not drive total negative.
+      if (index !== -1) {
+        state.projects.splice(index, 1);
+        state.total -= 1;
+      }
     },
     clearProjects: (state) => {
       state.projects = [];
@@ -99,6 +117,7 @@ export const {
   createSuccess,
   createFailure,
   addProject,
+  upsertProject,
   updateProject,
   removeProject,
   clearProjects,

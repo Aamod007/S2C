@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { fetchQuery } from "convex/nextjs";
+import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { inngest } from "@/inngest/client";
@@ -21,6 +21,7 @@ export async function PATCH(request: NextRequest) {
       projectId?: string;
       sketchesData?: unknown;
       viewportData?: unknown;
+      savedAt?: unknown;
     };
     try {
       body = await request.json();
@@ -28,7 +29,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const { projectId, sketchesData, viewportData } = body;
+    const { projectId, sketchesData, viewportData, savedAt } = body;
     if (typeof projectId !== "string" || !projectId) {
       return NextResponse.json(
         { error: "projectId is required" },
@@ -69,20 +70,49 @@ export async function PATCH(request: NextRequest) {
     // project.user_id is the caller's Convex users-table id (getById only
     // returns projects owned by the caller) — exactly what the workflow's
     // webhook-safe mutation needs.
-    await inngest.send({
-      name: "project/autosave.requested",
-      data: {
-        userId: project.user_id,
-        projectId,
-        sketchesData,
-        viewportData,
-        // Monotonic snapshot timestamp — lets the workflow reject stale
-        // saves that get retried/reordered after a newer one landed.
-        savedAt: Date.now(),
-      },
-    });
+    // Snapshot timestamp for the staleness guard. Prefer the CLIENT's
+    // stamp (taken when the snapshot was sent) — stamping here would
+    // order saves by when their handlers ran, so an older request whose
+    // ownership check stalled could out-stamp a newer one that already
+    // landed. Fall back to server time for older clients.
+    const effectiveSavedAt =
+      typeof savedAt === "number" && Number.isFinite(savedAt) && savedAt > 0
+        ? savedAt
+        : Date.now();
 
-    return NextResponse.json({ status: "queued" }, { status: 200 });
+    try {
+      await inngest.send({
+        name: "project/autosave.requested",
+        data: {
+          userId: project.user_id,
+          projectId,
+          sketchesData,
+          viewportData,
+          savedAt: effectiveSavedAt,
+        },
+      });
+      return NextResponse.json({ status: "queued" }, { status: 200 });
+    } catch (inngestError) {
+      // Inngest unreachable (no `npx inngest-cli dev` locally, or event-key
+      // outage in prod). The save must not be lost — write Convex directly
+      // with the caller's own token. We lose Inngest's tab-close durability
+      // for this one save, but the request is already server-side here.
+      console.warn(
+        "Autosave: Inngest enqueue failed, saving directly:",
+        inngestError
+      );
+      await fetchMutation(
+        api.projects.updateSketches,
+        {
+          projectId: projectId as Id<"projects">,
+          sketches_data: sketchesData,
+          viewport_data: viewportData,
+          saved_at: effectiveSavedAt,
+        },
+        { token }
+      );
+      return NextResponse.json({ status: "saved-direct" }, { status: 200 });
+    }
   } catch (error) {
     console.error("Autosave enqueue failed:", error);
     return NextResponse.json(
