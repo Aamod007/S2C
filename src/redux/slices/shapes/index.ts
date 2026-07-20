@@ -1,453 +1,195 @@
 import {
   createSlice,
   createEntityAdapter,
-  nanoid,
+  current,
   PayloadAction,
-  EntityState,
 } from "@reduxjs/toolkit";
-import type { Point } from "../viewport";
+import { Shape, ToolType } from "@/types/shapes";
 
-export type Tool =
-  | "select"
-  | "frame"
-  | "rect"
-  | "ellipse"
-  | "freedraw"
-  | "arrow"
-  | "line"
-  | "text"
-  | "eraser";
+const shapesAdapter = createEntityAdapter<Shape>();
 
-export interface BaseShape {
-  id: string;
-  stroke: string;
-  strokeWidth: number;
-  fill?: string | null;
-}
-export interface FrameShape extends BaseShape {
-  type: "frame";
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  frameNumber: number;
-}
-export interface RectShape extends BaseShape {
-  type: "rect";
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-export interface EllipseShape extends BaseShape {
-  type: "ellipse";
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-export interface FreeDrawShape extends BaseShape {
-  type: "freedraw";
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  points: Point[];
-}
-export interface ArrowShape extends BaseShape {
-  type: "arrow";
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
-}
-export interface LineShape extends BaseShape {
-  type: "line";
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
-}
-export interface TextShape extends BaseShape {
-  type: "text";
-  x: number;
-  y: number;
-  text: string;
-  fontSize: number;
-  fontFamily: string;
-  fontWeight: number;
-  fontStyle: "normal" | "italic";
-  textAlign: "left" | "center" | "right";
-  textDecoration: "none" | "underline" | "line-through";
-  lineHeight: number;
-  letterSpacing: number;
-  textTransform: "none" | "uppercase" | "lowercase" | "capitalize";
-  color?: string;
+/** Undoable snapshot of the shape data (selection/tool are not undone). */
+interface HistoryEntry {
+  ids: string[];
+  entities: Record<string, Shape>;
 }
 
-export interface GeneratedUIShape extends BaseShape {
-  type: "generatedui";
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  uiSpecData: string | null;
-  sourceFrameId: string;
-  isWorkflowPage?: boolean; // Flag to identify workflow pages
-  name?: string;
-  status?: string;
+const HISTORY_LIMIT = 50;
+
+interface ShapesExtraState {
+  tool: ToolType;
+  selectedIds: string[];
+  selectedFrameCounter: number;
+  past: HistoryEntry[];
+  future: HistoryEntry[];
 }
 
-export type Shape =
-  | FrameShape
-  | RectShape
-  | EllipseShape
-  | FreeDrawShape
-  | ArrowShape
-  | LineShape
-  | TextShape
-  | GeneratedUIShape;
-
-const shapesAdapter = createEntityAdapter<Shape, string>({
-  selectId: (s) => s.id,
+const initialState = shapesAdapter.getInitialState<ShapesExtraState>({
+  tool: "select",
+  selectedIds: [],
+  selectedFrameCounter: 0,
+  past: [],
+  future: [],
 });
 
-type SelectionMap = Record<string, true>;
+type ShapesSliceState = typeof initialState;
 
-interface ShapesState {
-  tool: Tool;
-  shapes: EntityState<Shape, string>;
-  selected: SelectionMap;
-  frameCounter: number;
-}
-
-const initialState: ShapesState = {
-  tool: "select",
-  shapes: shapesAdapter.getInitialState(),
-  selected: {},
-  frameCounter: 0,
+const takeSnapshot = (state: ShapesSliceState): HistoryEntry => {
+  const s = current(state);
+  return {
+    ids: [...s.ids] as string[],
+    entities: { ...s.entities } as Record<string, Shape>,
+  };
 };
 
-const DEFAULTS = { stroke: "#ffff", strokeWidth: 2 as const };
+const restore = (state: ShapesSliceState, entry: HistoryEntry) => {
+  state.ids = entry.ids;
+  state.entities = entry.entities;
+  state.selectedIds = state.selectedIds.filter((id) => entry.entities[id]);
+};
 
-const makeFrame = (p: {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  frameNumber: number;
-  stroke?: string;
-  strokeWidth?: number;
-  fill?: string | null;
-}): FrameShape => ({
-  id: nanoid(),
-  type: "frame",
-  x: p.x,
-  y: p.y,
-  w: p.w,
-  h: p.h,
-  frameNumber: p.frameNumber,
-  stroke: "transparent",
-  strokeWidth: 0,
-  fill: p.fill ?? "rgba(255, 255, 255, 0.05)",
-});
+const pushPast = (state: ShapesSliceState) => {
+  state.past.push(takeSnapshot(state));
+  if (state.past.length > HISTORY_LIMIT) state.past.shift();
+  state.future = []; // a new action invalidates the redo stack
+};
 
-const makeRect = (p: {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  stroke?: string;
-  strokeWidth?: number;
-  fill?: string | null;
-}): RectShape => ({
-  id: nanoid(),
-  type: "rect",
-  x: p.x,
-  y: p.y,
-  w: p.w,
-  h: p.h,
-  stroke: p.stroke ?? DEFAULTS.stroke,
-  strokeWidth: p.strokeWidth ?? DEFAULTS.strokeWidth,
-  fill: p.fill ?? null,
-});
-
-const makeEllipse = (p: {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  stroke?: string;
-  strokeWidth?: number;
-  fill?: string | null;
-}): EllipseShape => ({
-  id: nanoid(),
-  type: "ellipse",
-  x: p.x,
-  y: p.y,
-  w: p.w,
-  h: p.h,
-  stroke: p.stroke ?? DEFAULTS.stroke,
-  strokeWidth: p.strokeWidth ?? DEFAULTS.strokeWidth,
-  fill: p.fill ?? null,
-});
-
-const makeFree = (p: {
-  points: Point[];
-  stroke?: string;
-  strokeWidth?: number;
-  fill?: string | null;
-}): FreeDrawShape => ({
-  id: nanoid(),
-  type: "freedraw",
-  points: p.points, x: 0, y: 0, w: 0, h: 0,
-  stroke: p.stroke ?? DEFAULTS.stroke,
-  strokeWidth: p.strokeWidth ?? DEFAULTS.strokeWidth,
-  fill: p.fill ?? null,
-});
-
-const makeArrow = (p: {
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
-  stroke?: string;
-  strokeWidth?: number;
-  fill?: string | null;
-}): ArrowShape => ({
-  id: nanoid(),
-  type: "arrow",
-  startX: p.startX,
-  startY: p.startY,
-  endX: p.endX,
-  endY: p.endY,
-  stroke: p.stroke ?? DEFAULTS.stroke,
-  strokeWidth: p.strokeWidth ?? DEFAULTS.strokeWidth,
-  fill: p.fill ?? null,
-});
-
-const makeLine = (p: {
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
-  stroke?: string;
-  strokeWidth?: number;
-  fill?: string | null;
-}): LineShape => ({
-  id: nanoid(),
-  type: "line",
-  startX: p.startX,
-  startY: p.startY,
-  endX: p.endX,
-  endY: p.endY,
-  stroke: p.stroke ?? DEFAULTS.stroke,
-  strokeWidth: p.strokeWidth ?? DEFAULTS.strokeWidth,
-  fill: p.fill ?? null,
-});
-
-const makeText = (p: {
-  x: number;
-  y: number;
-  text?: string;
-  fontSize?: number;
-  fontFamily?: string;
-  fontWeight?: number;
-  fontStyle?: "normal" | "italic";
-  textAlign?: "left" | "center" | "right";
-  textDecoration?: "none" | "underline" | "line-through";
-  lineHeight?: number;
-  letterSpacing?: number;
-  textTransform?: "none" | "uppercase" | "lowercase" | "capitalize";
-  stroke?: string;
-  strokeWidth?: number;
-  fill?: string | null;
-}): TextShape => ({
-  id: nanoid(),
-  type: "text",
-  x: p.x,
-  y: p.y,
-  text: p.text ?? "Type here...", // Start with placeholder text
-  fontSize: p.fontSize ?? 16,
-  fontFamily: p.fontFamily ?? "Inter, sans-serif",
-  fontWeight: p.fontWeight ?? 400,
-  fontStyle: p.fontStyle ?? "normal",
-  textAlign: p.textAlign ?? "left",
-  textDecoration: p.textDecoration ?? "none",
-  lineHeight: p.lineHeight ?? 1.2,
-  letterSpacing: p.letterSpacing ?? 0,
-  textTransform: p.textTransform ?? "none",
-  stroke: p.stroke ?? DEFAULTS.stroke,
-  strokeWidth: p.strokeWidth ?? DEFAULTS.strokeWidth,
-  fill: p.fill ?? "#ffffff",
-});
-
-const makeGeneratedUI = (p: {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  uiSpecData: string | null; // HTML markup as string
-  sourceFrameId: string;
-  id?: string;
-  stroke?: string;
-  strokeWidth?: number;
-  fill?: string | null;
-  isWorkflowPage?: boolean; // Flag to identify workflow pages
-}): GeneratedUIShape => ({
-  id: p.id ?? nanoid(),
-  type: "generatedui",
-  x: p.x,
-  y: p.y,
-  w: p.w,
-  h: p.h,
-  uiSpecData: p.uiSpecData,
-  sourceFrameId: p.sourceFrameId,
-  isWorkflowPage: p.isWorkflowPage,
-  stroke: "transparent", // No border for generated UI
-  strokeWidth: 0,
-  fill: p.fill ?? null,
-});
+const addWithHistory = (state: ShapesSliceState, action: PayloadAction<Shape>) => {
+  pushPast(state);
+  shapesAdapter.addOne(state, action.payload);
+};
 
 const shapesSlice = createSlice({
   name: "shapes",
   initialState,
   reducers: {
-    setTool(state, action: PayloadAction<Tool>) {
-      state.tool = action.payload;
-      if (action.payload !== "select") state.selected = {};
+    // Shape CRUD. Mutating actions push an undo snapshot first (grouped
+    // interactions like drag/resize checkpoint via pushHistory instead).
+    addShape: (state, action: PayloadAction<Shape>) => {
+      pushPast(state);
+      shapesAdapter.addOne(state, action.payload);
+    },
+    addShapes: (state, action: PayloadAction<Shape[]>) => {
+      pushPast(state);
+      shapesAdapter.addMany(state, action.payload);
+    },
+    updateShape: shapesAdapter.updateOne,
+    updateShapes: shapesAdapter.updateMany,
+    // Removals also drop the removed ids from the selection — otherwise
+    // erasing/deleting a selected shape leaves dead ids in selectedIds.
+    removeShape: (state, action: PayloadAction<string>) => {
+      pushPast(state);
+      shapesAdapter.removeOne(state, action.payload);
+      state.selectedIds = state.selectedIds.filter(
+        (id) => id !== action.payload
+      );
+    },
+    removeShapes: (state, action: PayloadAction<string[]>) => {
+      pushPast(state);
+      shapesAdapter.removeMany(state, action.payload);
+      state.selectedIds = state.selectedIds.filter(
+        (id) => !action.payload.includes(id)
+      );
+    },
+    clearShapes: (state) => {
+      pushPast(state);
+      shapesAdapter.removeAll(state);
+      state.selectedIds = [];
     },
 
-    addFrame(
-      state,
-      action: PayloadAction<
-        Omit<Parameters<typeof makeFrame>[0], "frameNumber">
-      >
-    ) {
-      state.frameCounter += 1;
-      const frameWithNumber = {
-        ...action.payload,
-        frameNumber: state.frameCounter,
-      };
-      shapesAdapter.addOne(state.shapes, makeFrame(frameWithNumber));
-    },
-    addRect(state, action: PayloadAction<Parameters<typeof makeRect>[0]>) {
-      shapesAdapter.addOne(state.shapes, makeRect(action.payload));
-    },
-    addEllipse(
-      state,
-      action: PayloadAction<Parameters<typeof makeEllipse>[0]>
-    ) {
-      shapesAdapter.addOne(state.shapes, makeEllipse(action.payload));
-    },
-    addFreeDrawShape(
-      state,
-      action: PayloadAction<Parameters<typeof makeFree>[0]>
-    ) {
-      const { points } = action.payload;
-      if (!points || points.length === 0) return;
-      shapesAdapter.addOne(state.shapes, makeFree(action.payload));
-    },
-    addArrow(state, action: PayloadAction<Parameters<typeof makeArrow>[0]>) {
-      shapesAdapter.addOne(state.shapes, makeArrow(action.payload));
-    },
-    addLine(state, action: PayloadAction<Parameters<typeof makeLine>[0]>) {
-      shapesAdapter.addOne(state.shapes, makeLine(action.payload));
-    },
-    addText(state, action: PayloadAction<Parameters<typeof makeText>[0]>) {
-      shapesAdapter.addOne(state.shapes, makeText(action.payload));
-    },
-    addGeneratedUI(
-      state,
-      action: PayloadAction<Parameters<typeof makeGeneratedUI>[0]>
-    ) {
-      shapesAdapter.addOne(state.shapes, makeGeneratedUI(action.payload));
+    // Explicit undo checkpoint for grouped interactions (drag, resize,
+    // sidebar edits) — dispatch BEFORE the first updateShape of the gesture.
+    pushHistory: (state) => {
+      pushPast(state);
     },
 
-    updateShape(
-      state,
-      action: PayloadAction<{ id: string; patch: Partial<Shape> }>
-    ) {
-      const { id, patch } = action.payload;
-      shapesAdapter.updateOne(state.shapes, { id, changes: patch });
+    undo: (state) => {
+      const entry = state.past.pop();
+      if (!entry) return;
+      state.future.push(takeSnapshot(state));
+      restore(state, entry);
+    },
+    redo: (state) => {
+      const entry = state.future.pop();
+      if (!entry) return;
+      state.past.push(takeSnapshot(state));
+      restore(state, entry);
     },
 
-    removeShape(state, action: PayloadAction<string>) {
+    // Typed shape adders (dispatching convenience)
+    addFrame: (state, action: PayloadAction<Shape>) => {
+      pushPast(state);
+      shapesAdapter.addOne(state, action.payload);
+      state.selectedFrameCounter += 1;
+    },
+    addRectangle: addWithHistory,
+    addEllipse: addWithHistory,
+    addLine: addWithHistory,
+    addArrow: addWithHistory,
+    addFreeDrawShape: addWithHistory,
+    addText: addWithHistory,
+    addGeneratedUI: addWithHistory,
+
+    // Selection
+    selectShape: (state, action: PayloadAction<string>) => {
+      state.selectedIds = [action.payload];
+    },
+    toggleSelectShape: (state, action: PayloadAction<string>) => {
       const id = action.payload;
-      const shape = state.shapes.entities[id];
-      if (shape?.type === "frame") {
-        state.frameCounter = Math.max(0, state.frameCounter - 1);
+      if (state.selectedIds.includes(id)) {
+        state.selectedIds = state.selectedIds.filter((sid) => sid !== id);
+      } else {
+        state.selectedIds.push(id);
       }
-      shapesAdapter.removeOne(state.shapes, id);
-      delete state.selected[id];
+    },
+    clearSelection: (state) => {
+      state.selectedIds = [];
     },
 
-    clearAll(state) {
-      shapesAdapter.removeAll(state.shapes);
-      state.selected = {};
-      state.frameCounter = 0;
+    // Tool
+    setTool: (state, action: PayloadAction<ToolType>) => {
+      state.tool = action.payload;
     },
 
-    selectShape(state, action: PayloadAction<string>) {
-      state.selected[action.payload] = true;
-    },
-    deselectShape(state, action: PayloadAction<string>) {
-      delete state.selected[action.payload];
-    },
-    clearSelection(state) {
-      state.selected = {};
-    },
-    selectAll(state) {
-      const ids = state.shapes.ids as string[];
-      state.selected = Object.fromEntries(ids.map((id) => [id, true]));
-    },
-    deleteSelected(state) {
-      const ids = Object.keys(state.selected);
-      if (ids.length) shapesAdapter.removeMany(state.shapes, ids);
-      state.selected = {};
-    },
-    loadProject(
-      state,
-      action: PayloadAction<{
-        shapes: EntityState<Shape, string>;
-        tool: Tool;
-        selected: SelectionMap;
-        frameCounter: number;
-      }>
-    ) {
-      // Load project data into the shapes state
-      state.shapes = action.payload.shapes;
-      state.tool = action.payload.tool;
-      state.selected = action.payload.selected;
-      state.frameCounter = action.payload.frameCounter;
+    // Load project data (hydration — not user-undoable, clear history)
+    loadProject: (state, action: PayloadAction<Shape[]>) => {
+      shapesAdapter.setAll(state, action.payload);
+      state.selectedIds = [];
+      state.past = [];
+      state.future = [];
     },
   },
 });
 
+// Scoped to any state that contains this slice under `shapes` (structurally
+// matches RootState without importing it — store.ts is owned elsewhere).
+export const shapesSelectors = shapesAdapter.getSelectors(
+  (state: { shapes: ReturnType<typeof shapesSlice.getInitialState> }) => state.shapes
+);
+
 export const {
-  setTool,
+  addShape,
+  addShapes,
+  updateShape,
+  updateShapes,
+  removeShape,
+  removeShapes,
+  clearShapes,
+  pushHistory,
+  undo,
+  redo,
   addFrame,
-  addRect,
+  addRectangle,
   addEllipse,
-  addFreeDrawShape,
-  addArrow,
   addLine,
+  addArrow,
+  addFreeDrawShape,
   addText,
   addGeneratedUI,
-  updateShape,
-  removeShape,
-  clearAll,
   selectShape,
-  deselectShape,
+  toggleSelectShape,
   clearSelection,
-  selectAll,
-  deleteSelected,
+  setTool,
   loadProject,
 } = shapesSlice.actions;
-
 export default shapesSlice.reducer;
-
-import type { RootState } from '../../store';
-export const shapesSelectors = shapesAdapter.getSelectors((state: RootState) => state.shapes.shapes);
-export const selectSelectedIds = (state: RootState) => Object.keys(state.shapes.selected);
-

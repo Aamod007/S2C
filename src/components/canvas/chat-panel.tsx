@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Send, X } from "lucide-react";
 import { useAppSelector } from "@/redux/hooks";
 import { shapesSelectors } from "@/redux/slices/shapes";
-import { GeneratedUIShape } from "@/redux/slices/shapes";
+import { GeneratedUIShape } from "@/types/shapes";
 import { useChatWindow } from "@/hooks/use-chat-window";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -146,4 +146,3 @@ export function ChatPanel({
     </div>
   );
 }
-

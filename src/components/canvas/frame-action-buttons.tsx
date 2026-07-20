@@ -4,7 +4,7 @@ import { Loader2, Sparkles, Workflow } from "lucide-react";
 import { useAppSelector } from "@/redux/hooks";
 import { shapesSelectors } from "@/redux/slices/shapes";
 import { worldToScreen } from "@/redux/slices/viewport";
-import { FrameShape, GeneratedUIShape } from "@/redux/slices/shapes";
+import { FrameShape, GeneratedUIShape } from "@/types/shapes";
 import { useFrame } from "@/hooks/use-frame";
 import { Button } from "@/components/ui/button";
 
@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 export function FrameActionButtons({ projectId }: { projectId: string }) {
   const scale = useAppSelector((state) => state.viewport.scale);
   const translate = useAppSelector((state) => state.viewport.translate);
-  const selectedIds = useAppSelector((state) => Object.keys(state.shapes.selected));
+  const selectedIds = useAppSelector((state) => state.shapes.selectedIds);
   const shapes = useAppSelector(shapesSelectors.selectAll);
 
   const { generateDesign, generateWorkflow, busyFrameIds } = useFrame(projectId);
@@ -31,7 +31,7 @@ export function FrameActionButtons({ projectId }: { projectId: string }) {
   // First completed design generated from this frame → workflow source page.
   const mainDesign = shapes.find(
     (s): s is GeneratedUIShape =>
-      s.type === "generatedui" &&
+      s.type === "generated-ui" &&
       s.sourceFrameId === frame.id &&
       typeof s.uiSpecData === "string" &&
       s.uiSpecData.trim().length > 0 &&
@@ -40,7 +40,7 @@ export function FrameActionButtons({ projectId }: { projectId: string }) {
   );
 
   const screen = worldToScreen(
-    frame.x + frame.w / 2,
+    frame.x + frame.width / 2,
     frame.y,
     scale,
     translate
@@ -81,4 +81,3 @@ export function FrameActionButtons({ projectId }: { projectId: string }) {
     </div>
   );
 }
-

@@ -15,7 +15,7 @@ import type { Id } from "@convex/_generated/dataModel";
 import { useAppDispatch } from "@/redux/hooks";
 import { loadProject } from "@/redux/slices/shapes";
 import { upsertProject } from "@/redux/slices/projects";
-import type { Shape } from "@/redux/slices/shapes";
+import type { Shape } from "@/types/shapes";
 import { useAutosave, type AutosaveStatus } from "@/hooks/use-autosave";
 import { AutosaveIndicator } from "@/components/canvas/autosave";
 
@@ -48,9 +48,20 @@ export function ProjectProvider({
   children: ReactNode;
 }) {
   const dispatch = useAppDispatch();
-  const project = useQuery(api.projects.getById, {
+  const isMock = projectId.length < 5;
+  const rawProject = useQuery(api.projects.getById, isMock ? "skip" : {
     projectId: projectId as Id<"projects">,
   });
+
+  const project = isMock ? {
+    _id: projectId as Id<"projects">,
+    name: "Mock Project",
+    description: "",
+    project_number: parseInt(projectId) || 1,
+    last_modified: Date.now(),
+    created_at: Date.now(),
+    sketches_data: [],
+  } : rawProject;
 
   const hydratedRef = useRef<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -81,11 +92,11 @@ export function ProjectProvider({
       ? (project.sketches_data as Shape[])
       : [];
     const sketches: Shape[] = rawSketches.map((s) =>
-      s.type === "generatedui" && (s as any).status === "streaming"
-        ? { ...s, status: (s as any).uiSpecData ? "ready" : "error" }
+      (s as any).type === "generatedui" && (s as any).status === "streaming"
+        ? { ...(s as any), status: (s as any).uiSpecData ? "ready" : "error" } as Shape
         : s
     );
-    dispatch(loadProject({ shapes: { ids: sketches.map((s) => s.id), entities: Object.fromEntries(sketches.map((s) => [s.id, s])) }, tool: "select", selected: {}, frameCounter: 0 }));
+    dispatch(loadProject(sketches));
 
     setHydrated(true);
   }, [project, projectId, dispatch]);
