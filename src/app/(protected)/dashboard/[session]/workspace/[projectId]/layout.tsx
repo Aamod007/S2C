@@ -28,30 +28,10 @@ export default function WorkspaceLayout({
   return (
     <ProjectProvider key={projectId} projectId={projectId}>
       <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
-        <nav className="flex shrink-0 items-center gap-1 border-b border-border/40 bg-background/95 px-4">
-          {TABS.map(({ label, segment, icon: Icon }) => {
-            const href = `${base}/${segment}`;
-            const isActive = pathname.startsWith(href);
-            return (
-              <Link
-                key={segment}
-                href={href}
-                className={cn(
-                  "flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </Link>
-            );
-          })}
-          <div className="ml-auto">
+          {/* Secondary navbar removed as per user request */}
+          <div className="absolute top-2 right-4 z-50 pointer-events-auto">
             <AutosaveStatusBadge />
           </div>
-        </nav>
         <div className="relative flex-1 overflow-hidden">{children}</div>
       </div>
     </ProjectProvider>

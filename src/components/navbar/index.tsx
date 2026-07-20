@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+
 import { UserButton } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, HelpCircle, Hash, Palette, Loader2 } from "lucide-react";
 import { useProject } from "@/hooks/use-project";
 
+import { useParams, usePathname, useRouter } from "next/navigation";
 export function Navbar() {
   const router = useRouter();
   // Server-preloaded profile (root layout preloadedState, spec §5) renders
@@ -37,6 +38,9 @@ export function Navbar() {
   if (!user) return null;
 
   const session = generateUserSlug(user.name, user.email);
+  const params = useParams();
+  const pathname = usePathname();
+  const projectId = params?.projectId as string | undefined;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-neutral-900 bg-neutral-950">
@@ -50,16 +54,32 @@ export function Navbar() {
         </Link>
         
         {/* Center: Tabs */}
-        <div className="flex items-center space-x-1 rounded-full bg-neutral-900 p-1">
-          <button className="flex items-center space-x-2 rounded-full px-4 py-1.5 text-sm font-medium text-neutral-400 hover:text-neutral-200 transition-colors">
-            <Hash className="h-4 w-4" />
-            <span>Canvas</span>
-          </button>
-          <button className="flex items-center space-x-2 rounded-full px-4 py-1.5 text-sm font-medium text-neutral-400 hover:text-neutral-200 transition-colors">
-            <Palette className="h-4 w-4" />
-            <span>Style Guide</span>
-          </button>
-        </div>
+        {projectId && (
+          <div className="flex items-center space-x-1 rounded-full bg-neutral-900 p-1">
+            <Link 
+              href={`/dashboard/${session}/workspace/${projectId}/canvas`}
+              className={`flex items-center space-x-2 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                pathname.includes('/canvas') 
+                  ? "bg-neutral-800 text-white" 
+                  : "text-neutral-400 hover:text-neutral-200"
+              }`}
+            >
+              <Hash className="h-4 w-4" />
+              <span>Canvas</span>
+            </Link>
+            <Link 
+              href={`/dashboard/${session}/workspace/${projectId}/style-guide`}
+              className={`flex items-center space-x-2 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                pathname.includes('/style-guide') 
+                  ? "bg-neutral-800 text-white" 
+                  : "text-neutral-400 hover:text-neutral-200"
+              }`}
+            >
+              <Palette className="h-4 w-4" />
+              <span>Style Guide</span>
+            </Link>
+          </div>
+        )}
         
         {/* Right: Actions & User */}
         <div className="flex items-center space-x-4">
