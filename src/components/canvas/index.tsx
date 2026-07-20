@@ -17,6 +17,7 @@ import { Line } from "./shapes/line";
 import { Rectangle } from "./shapes/rectangle";
 import { Stroke as FreeDraw } from "./shapes/stroke";
 import { Text } from "./shapes/text";
+import { SelectionOverlay } from "./selection";
 
 
 export function CanvasContainer({
@@ -59,7 +60,7 @@ export function CanvasContainer({
       case "ellipse":
         return <Ellipse key={shape.id} shape={shape} />;
       case "frame":
-        return <Frame key={shape.id} shape={shape} />;
+        return <Frame key={shape.id} shape={shape as any} toggleInspiration={() => {}} />;
       case "line":
         return <Line key={shape.id} shape={shape} />;
       case "arrow":
@@ -102,7 +103,13 @@ export function CanvasContainer({
       >
         {shapes.map(renderShape)}
 
-        
+        {shapes.map((shape) => (
+          <SelectionOverlay
+            key={`selection-${shape.id}`}
+            shape={shape}
+            isSelected={selectedIds.includes(shape.id)}
+          />
+        ))}
       </div>
 
       <GeneratedUIOverlay

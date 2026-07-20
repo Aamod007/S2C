@@ -176,7 +176,7 @@ const GeneratedUICard = memo(function GeneratedUICard({
         top: shape.y,
         width: shape.w,
         minHeight: HEADER_HEIGHT,
-        opacity: 1 ?? 1,
+        opacity: 1 ,
       }}
     >
       {/* Header chrome — the only pointer-interactive part of the card. */}

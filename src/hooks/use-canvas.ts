@@ -10,14 +10,14 @@ export function useInfinityCanvas(canvasRef: RefObject<HTMLCanvasElement | null>
     dx: number;
     dy: number;
     zoomDelta: number | null;
-    originScreen: { x: 0, y: 0 }, //clientX: number;
-    //clientY: number;
+    originScreen: { x: 0, y: 0 }, //originScreen: { x: 0, y: 0 }, //clientX: number;
+    ////clientY: number;
   }>({
     dx: 0,
     dy: 0,
     zoomDelta: null,
-    originScreen: { x: 0, y: 0 }, //clientX: 0,
-    //clientY: 0,
+    originScreen: { x: 0, y: 0 }, //originScreen: { x: 0, y: 0 }, //clientX: 0,
+    ////clientY: 0,
   });
 
   useEffect(() => {
@@ -65,8 +65,8 @@ export function useInfinityCanvas(canvasRef: RefObject<HTMLCanvasElement | null>
             dx: 0,
             dy: 0,
             zoomDelta: null,
-            originScreen: { x: 0, y: 0 }, //clientX: 0,
-            //clientY: 0,
+            originScreen: { x: 0, y: 0 }, //originScreen: { x: 0, y: 0 }, //clientX: 0,
+            ////clientY: 0,
           };
           isPanningRef.current = false;
         });
