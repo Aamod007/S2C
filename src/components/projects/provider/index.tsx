@@ -15,7 +15,7 @@ import type { Id } from "@convex/_generated/dataModel";
 import { useAppDispatch } from "@/redux/hooks";
 import { loadProject } from "@/redux/slices/shapes";
 import { upsertProject } from "@/redux/slices/projects";
-import type { Shape } from "@/types/shapes";
+import type { Shape } from "@/redux/slices/shapes";
 import { useAutosave, type AutosaveStatus } from "@/hooks/use-autosave";
 import { AutosaveIndicator } from "@/components/canvas/autosave";
 
@@ -81,11 +81,11 @@ export function ProjectProvider({
       ? (project.sketches_data as Shape[])
       : [];
     const sketches: Shape[] = rawSketches.map((s) =>
-      s.type === "generated-ui" && s.status === "streaming"
-        ? { ...s, status: s.uiSpecData ? "ready" : "error" }
+      s.type === "generatedui" && (s as any).status === "streaming"
+        ? { ...s, status: (s as any).uiSpecData ? "ready" : "error" }
         : s
     );
-    dispatch(loadProject(sketches));
+    dispatch(loadProject({ shapes: { ids: sketches.map((s) => s.id), entities: Object.fromEntries(sketches.map((s) => [s.id, s])) }, tool: "select", selected: {}, frameCounter: 0 }));
 
     setHydrated(true);
   }, [project, projectId, dispatch]);
@@ -105,3 +105,4 @@ export function ProjectProvider({
     </AutosaveContext.Provider>
   );
 }
+

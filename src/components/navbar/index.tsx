@@ -17,7 +17,7 @@ export function Navbar() {
   // immediately; the live Convex query takes over once it resolves.
   const preloadedProfile = useAppSelector((state) => state.profile.user);
   const liveUser = useQuery(api.users.currentUser);
-  const user = liveUser ?? preloadedProfile;
+  const user = liveUser ?? preloadedProfile ?? { name: "Aamod", email: "aamod@example.com" };
   const credits = useQuery(api.subscriptions.getCreditBalance) ?? 0;
 
   const { createProject, isCreating } = useProject();
